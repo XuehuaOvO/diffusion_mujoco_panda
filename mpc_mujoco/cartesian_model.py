@@ -5,8 +5,8 @@ import mujoco
 import mujoco.viewer
 import time
 
-FIXED_TARGET = np.array([[0.4], [0.4], [0.5]])
-TARGET_POS = np.array([0.4, 0.4, 0.5]).reshape(3, 1)
+FIXED_TARGET = np.array([[0.4], [0.4], [0.3]])
+TARGET_POS = np.array([0.4, 0.4, 0.3]).reshape(3, 1)
 Q = np.diag([10,10,10])
 R = np.diag([0.5,0.5,0.5,0.5,0.5,0.5,0.5])
 P = np.diag([10,10,10])
@@ -265,81 +265,85 @@ class Cartesian_MPC:
 
         max_runtime = 600
     
-        with mujoco.viewer.launch_passive(panda, data) as viewer:
-            start = time.time()
-            while viewer.is_running():
-                step_start = time.time()
+        # with mujoco.viewer.launch_passive(panda, data) as viewer:
+        start = time.time()
+        elapsed_time = time.time() - start
+        while elapsed_time <= max_runtime: # viewer.is_running():
+            step_start = time.time()
 
-                # position_error, jacp = self.compute_task_space_error(target_pos)
-                # joint_velocity_command = np.dot(np.linalg.pinv(jacp), position_error)
-                # data.qvel[:7] = joint_velocity_command[:7].flatten()
-                 
-                mujoco.mj_step(panda, data)
-
-                end_position = self.data.body("hand").xpos.copy()
-                print(f'-------------------------------------------------------------------------')
-                print(f'end_position -- {end_position}')
-                print(f'-------------------------------------------------------------------------')
-
-                # print(f'cost -- {(end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2}')
-                # distance_cost.append((end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2)
-
-                # distance_cost[1].append((end_position[0]-TARGET_POS[0])**2)
-                # distance_cost[2].append((end_position[1]-TARGET_POS[1])**2)
-                # distance_cost[3].append((end_position[2]-TARGET_POS[2])**2)
-
-
-                for i in range(3):
-                    x_states[i + 1].append(end_position[i])
-
-                # Position Jacobian
-                jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
-                jacp = jacp[:, :7] # 3*7
-
-                q_current = np.array(data.qpos).reshape(-1, 1)
-                q_dot_current = np.array(data.qvel).reshape(-1, 1)
-                x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
-                x0[:7] = q_current[:7]
-                x0[7:14] = q_dot_current[:7]
-                x0[14:17] = x_current
-                x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
-
-                for i in range(7):
-                    joint_states[i + 1].append(q_current[i])
-
-                u0 = mpc.make_step(x0)
-                data.ctrl[:7] = u0.flatten()
-
-                predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
-                predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
-
-                applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
-                for i in range(7):
-                    joint_inputs[i + 1].append(applied_inputs[i])
-
-                # calculate mpc cost
-                cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
-                print(f'cost -- {cost}')
-                cost = cost.toarray().reshape(-1)
-                mpc_cost.append(cost)
-
-
-                with viewer.lock():
-                    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = int(
-                        data.time % 2
-                    )
-
-                viewer.sync()
-                time_until_next_step = panda.opt.timestep - (time.time() - step_start)
-                if time_until_next_step > 0:
-                    time.sleep(time_until_next_step)
-
+            # position_error, jacp = self.compute_task_space_error(target_pos)
+            # joint_velocity_command = np.dot(np.linalg.pinv(jacp), position_error)
+            # data.qvel[:7] = joint_velocity_command[:7].flatten()
                 
-                # Check if the maximum runtime has been exceeded
-                elapsed_time = time.time() - start
-                if elapsed_time >= max_runtime:
-                    print("Simulation time limit reached. Exiting...")
-                    break
+            mujoco.mj_step(panda, data)
+
+            end_position = self.data.body("hand").xpos.copy()
+            print(f'-------------------------------------------------------------------------')
+            print(f'end_position -- {end_position}')
+            print(f'-------------------------------------------------------------------------')
+
+            # print(f'cost -- {(end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2}')
+            # distance_cost.append((end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2)
+
+            # distance_cost[1].append((end_position[0]-TARGET_POS[0])**2)
+            # distance_cost[2].append((end_position[1]-TARGET_POS[1])**2)
+            # distance_cost[3].append((end_position[2]-TARGET_POS[2])**2)
+
+
+            for i in range(3):
+                x_states[i + 1].append(end_position[i])
+
+            # Position Jacobian
+            jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
+            jacp = jacp[:, :7] # 3*7
+
+            q_current = np.array(data.qpos).reshape(-1, 1)
+            q_dot_current = np.array(data.qvel).reshape(-1, 1)
+            x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
+            x0[:7] = q_current[:7]
+            x0[7:14] = q_dot_current[:7]
+            x0[14:17] = x_current
+            x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
+
+            for i in range(7):
+                joint_states[i + 1].append(q_current[i])
+
+            u0 = mpc.make_step(x0)
+            data.ctrl[:7] = u0.flatten()
+
+            predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
+            predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
+
+            applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
+            for i in range(7):
+                joint_inputs[i + 1].append(applied_inputs[i])
+
+            # calculate mpc cost
+            cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
+            print(f'cost -- {cost}')
+            cost = cost.toarray().reshape(-1)
+            mpc_cost.append(cost)
+
+            elapsed_time = time.time() - start
+            print(f'elapsed_time -- {elapsed_time}')
+
+
+            # with viewer.lock():
+            #     viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = int(
+            #         data.time % 2
+            #     )
+
+            # viewer.sync()
+            # time_until_next_step = panda.opt.timestep - (time.time() - step_start)
+            # if time_until_next_step > 0:
+            #     time.sleep(time_until_next_step)
+
+            
+            # Check if the maximum runtime has been exceeded
+            # elapsed_time = time.time() - start
+            # if elapsed_time >= max_runtime:
+            #     print("Simulation time limit reached. Exiting...")
+            #     break
 
         return joint_states, x_states, mpc_cost, joint_inputs
 

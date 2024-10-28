@@ -8,7 +8,7 @@ from mpc_mujoco.joint_model import Joint_MPC
 
 import matplotlib.pyplot as plt
 
-TARGET_POS = np.array([0.4, 0.4, 0.5])
+TARGET_POS = np.array([0.4, 0.4, 0.3])
 
 if __name__ == "__main__":
     # panda = load_robot_description("panda_mj_description")
@@ -49,30 +49,30 @@ if __name__ == "__main__":
     target = TARGET_POS
     ax.scatter(target[0], target[1], target[2], color='red', s=10)
 
-    # obstacle ball
+    # obstacle ball     <geom name="obstacle" type="sphere" pos="0.15 0.15 0.7" size="0.1" rgba="0 0 1 0.5"/>
     # Define the center and radius of the ball
     # Sphere parameters
-    # r = 0.15  # Radius of the sphere
-    # pi = np.pi
-    # cos = np.cos
-    # sin = np.sin
+    r = 0.15  # Radius of the sphere
+    pi = np.pi
+    cos = np.cos
+    sin = np.sin
 
-    # # Define spherical coordinates
-    # phi, theta = np.mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
-    # x = r * sin(phi) * cos(theta)
-    # y = r * sin(phi) * sin(theta)
-    # z = r * cos(phi)
+    # Define spherical coordinates
+    phi, theta = np.mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
+    x = r * sin(phi) * cos(theta)
+    y = r * sin(phi) * sin(theta)
+    z = r * cos(phi)
 
-    # # Define the center of the sphere
-    # center = [0.15, 0.3, 0.75]
+    # Define the center of the sphere
+    center = [0, 0, 0.7]
 
-    # # Shift the sphere by the center
-    # x += center[0]
-    # y += center[1]
-    # z += center[2]
+    # Shift the sphere by the center
+    x += center[0]
+    y += center[1]
+    z += center[2]
 
-    # # Plot the surface of the sphere
-    # ax.plot_surface(x, y, z, color='blue', alpha=0.6)
+    # Plot the surface of the sphere
+    ax.plot_surface(x, y, z, color='blue', alpha=0.6)
 
     # Set axis labels
     ax.set_xlabel('X')
