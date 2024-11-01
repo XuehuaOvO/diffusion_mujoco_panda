@@ -5,8 +5,12 @@ import mujoco
 import mujoco.viewer
 import time
 
-FIXED_TARGET = np.array([[0.4], [0.4], [0.3]])
-TARGET_POS = np.array([0.4, 0.4, 0.3]).reshape(3, 1)
+HORIZON = 128
+CONTROLLER_SAMPLE_TIME = 0.003 
+FIXED_TARGET = np.array([[0.2], [0.2], [0.9]]) # np.array([[0.4], [0.4], [0.3]])
+TARGET_POS = np.array([0.2, 0.2, 0.9]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
+U_INI_GUESS = ca.DM([0,0,0,0,0,0,0])
+
 Q = np.diag([10,10,10])
 R = np.diag([0.5,0.5,0.5,0.5,0.5,0.5,0.5])
 P = np.diag([10,10,10])
@@ -128,12 +132,12 @@ class Cartesian_MPC:
 
     def create_mpc(self, model):
         mpc = do_mpc.controller.MPC(model)
-        n_horizon = 16 #32
-        t_step = 0.01
+        n_horizon = HORIZON #32
+        t_step = 0.001
 
         setup_mpc = {
             "n_horizon": n_horizon,
-            "t_step": 0.01,
+            "t_step": t_step,
             "state_discretization": "collocation",
             "collocation_type": "radau",
             "collocation_deg": 3,
@@ -254,7 +258,7 @@ class Cartesian_MPC:
     def _simulate_mpc_mujoco(self, mpc, panda, data):
         x0 = np.zeros((20, 1))
         mpc.x0 = x0
-        u0_initial_guess = ca.DM([0,0,0,0,0,0,0])
+        u0_initial_guess = U_INI_GUESS
         mpc.u0 = u0_initial_guess
         mpc.set_initial_guess()
 
@@ -262,14 +266,22 @@ class Cartesian_MPC:
         joint_inputs = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
         x_states = {1: [], 2: [], 3: []}
         mpc_cost = []
+        abs_distance = []
 
-        max_runtime = 600
+        max_runtime = 300
+        max_steps = 2700
+        current_step = 0
+
+        # control update step
+        mujoco_time_step = 0.001      # MuJoCo timestep
+        controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
+        steps_per_control_update = int(controller_sample_time / mujoco_time_step)  # 3 steps
     
         # with mujoco.viewer.launch_passive(panda, data) as viewer:
-        start = time.time()
-        elapsed_time = time.time() - start
-        while elapsed_time <= max_runtime: # viewer.is_running():
-            step_start = time.time()
+        # start = time.time()
+        # elapsed_time = time.time() - start
+        while current_step < max_steps: # viewer.is_running():
+            # step_start = time.time()
 
             # position_error, jacp = self.compute_task_space_error(target_pos)
             # joint_velocity_command = np.dot(np.linalg.pinv(jacp), position_error)
@@ -277,55 +289,61 @@ class Cartesian_MPC:
                 
             mujoco.mj_step(panda, data)
 
-            end_position = self.data.body("hand").xpos.copy()
-            print(f'-------------------------------------------------------------------------')
-            print(f'end_position -- {end_position}')
-            print(f'-------------------------------------------------------------------------')
+            if current_step % steps_per_control_update == 0:
+                end_position = self.data.body("hand").xpos.copy()
+                print(f'-------------------------------------------------------------------------')
+                print(f'end_position -- {end_position}')
+                print(f'-------------------------------------------------------------------------')
+                distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
+                print(f'distance -- {distance}')
+                abs_distance.append(distance)
 
-            # print(f'cost -- {(end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2}')
-            # distance_cost.append((end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2)
+                # print(f'cost -- {(end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2}')
+                # distance_cost.append((end_position[0]-TARGET_POS[0])**2 + (end_position[1]-TARGET_POS[1])**2 + (end_position[2]-TARGET_POS[2])**2)
 
-            # distance_cost[1].append((end_position[0]-TARGET_POS[0])**2)
-            # distance_cost[2].append((end_position[1]-TARGET_POS[1])**2)
-            # distance_cost[3].append((end_position[2]-TARGET_POS[2])**2)
+                # distance_cost[1].append((end_position[0]-TARGET_POS[0])**2)
+                # distance_cost[2].append((end_position[1]-TARGET_POS[1])**2)
+                # distance_cost[3].append((end_position[2]-TARGET_POS[2])**2)
 
 
-            for i in range(3):
-                x_states[i + 1].append(end_position[i])
+                for i in range(3):
+                    x_states[i + 1].append(end_position[i])
 
-            # Position Jacobian
-            jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
-            jacp = jacp[:, :7] # 3*7
+                # Position Jacobian
+                jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
+                jacp = jacp[:, :7] # 3*7
 
-            q_current = np.array(data.qpos).reshape(-1, 1)
-            q_dot_current = np.array(data.qvel).reshape(-1, 1)
-            x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
-            x0[:7] = q_current[:7]
-            x0[7:14] = q_dot_current[:7]
-            x0[14:17] = x_current
-            x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
+                q_current = np.array(data.qpos).reshape(-1, 1)
+                q_dot_current = np.array(data.qvel).reshape(-1, 1)
+                x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
+                x0[:7] = q_current[:7]
+                x0[7:14] = q_dot_current[:7]
+                x0[14:17] = x_current
+                x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
 
-            for i in range(7):
-                joint_states[i + 1].append(q_current[i])
+                for i in range(7):
+                    joint_states[i + 1].append(q_current[i])
+            
+                u0 = mpc.make_step(x0)
+                data.ctrl[:7] = u0.flatten()
 
-            u0 = mpc.make_step(x0)
-            data.ctrl[:7] = u0.flatten()
+                predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
+                predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
 
-            predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
-            predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
+                applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
+                for i in range(7):
+                    joint_inputs[i + 1].append(applied_inputs[i])
 
-            applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
-            for i in range(7):
-                joint_inputs[i + 1].append(applied_inputs[i])
+                # calculate mpc cost
+                cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
+                print(f'cost -- {cost}')
+                cost = cost.toarray().reshape(-1)
+                mpc_cost.append(cost)
+                
+            current_step += 1
+            # elapsed_time = time.time() - start
+            print(f'current_step -- {current_step}')
 
-            # calculate mpc cost
-            cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
-            print(f'cost -- {cost}')
-            cost = cost.toarray().reshape(-1)
-            mpc_cost.append(cost)
-
-            elapsed_time = time.time() - start
-            print(f'elapsed_time -- {elapsed_time}')
 
 
             # with viewer.lock():
@@ -345,7 +363,7 @@ class Cartesian_MPC:
             #     print("Simulation time limit reached. Exiting...")
             #     break
 
-        return joint_states, x_states, mpc_cost, joint_inputs
+        return joint_states, x_states, mpc_cost, joint_inputs, abs_distance
 
     def simulate(self):
         return self._simulate_mpc_mujoco(self.mpc, self.data.model, self.data)
