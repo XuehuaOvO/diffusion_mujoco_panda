@@ -1,6 +1,7 @@
 import mujoco
 # from robot_descriptions.loaders.mujoco import load_robot_description
 import numpy as np
+import os
 
 from mpc_mujoco.model import MPC
 from mpc_mujoco.cartesian_model import Cartesian_MPC
@@ -8,20 +9,33 @@ from mpc_mujoco.joint_model import Joint_MPC
 
 import matplotlib.pyplot as plt
 
-TARGET_POS = np.array([0.4, 0.4, 0.3])
+TARGET_POS = np.array([0.3, 0.3, 0.5])
+U_INI_GUESS = '0_0_0_0_0_0_0'
+RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
 
 if __name__ == "__main__":
     # panda = load_robot_description("panda_mj_description")
-    panda = mujoco.MjModel.from_xml_path('/home/xiao/diffusion_mujoco/xml/mjx_scene.xml')
+    panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
     data = mujoco.MjData(panda)
     for body_id in range(panda.nbody):  # nbody is the total number of bodies
         body_name = mujoco.mj_id2name(panda, mujoco.mjtObj.mjOBJ_BODY, body_id)
         print(f"Body ID {body_id}: {body_name}")
-    # data.qpos[:7] = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
-    # initial_qpos = np.array(data.qpos).reshape(-1, 1)
-    # mujoco.mj_fwdPosition(panda, data) # also mujoco.mj_invPosition!!!!!!!
+    
+    # define initial state via Gaussian noise (mean = 0, sd = 0.1)
+    mean = 0          # Mean of the distribution
+    std_dev = 0.1     # Standard deviation of the distribution
+    gaussian_noise_1 = np.round(np.random.normal(mean, std_dev),2)
+    gaussian_noise_2 = np.round(np.random.normal(mean, std_dev),2)
+    gaussian_noise_3 = np.round(np.random.normal(mean, std_dev),2)
+    gaussian_noise_4 = np.round(np.random.normal(mean, std_dev),2)
+    gaussian_noise_5 = np.round(np.random.normal(mean, std_dev),2)
+    gaussian_noise_6 = np.round(np.random.normal(mean, std_dev),2)
+
+    # initial_state = [gaussian_noise_1, gaussian_noise_2, gaussian_noise_3, gaussian_noise_4, gaussian_noise_5, gaussian_noise_6]
+    initial_state = [0,0,0,0,0,0]
+    data.qpos[:6] = initial_state # different joints initial states
+
     print(f'initial q_pos -- {np.array(data.qpos).reshape(-1, 1)}')
-    # print(f'initial q_vel -- {np.array(data.qvel).reshape(-1, 1)}')
     print(f'initial x_pos -- {np.array(data.xpos)}')
     # viewer = mujoco.viewer.launch(panda, data)
     
@@ -29,15 +43,18 @@ if __name__ == "__main__":
     mpc = Cartesian_MPC(panda = panda, data=data)
     # mpc = Joint_MPC(panda = panda, data=data)
 
-    # Plot results
-    # joint_states, x_states, mpc_cost = mpc.simulate()
-    joint_states, x_states, mpc_cost, joint_inputs = mpc.simulate()
+    joint_states, x_states, mpc_cost, joint_inputs, abs_distance = mpc.simulate()
 
-    ts = 0.01
-    n = len(x_states[1])
+    ###################### Plot results ######################
+    ts = 0.001 # 0.005
+    n = len(mpc_cost)
+    # print(f'mpc_cost -- {mpc_cost}')
+    print(f'n -- {n}')
     t = np.arange(0, n*ts, ts) # np.arange(len(joint_states[1])) * panda.opt.timestep
+    print(f't -- {len(t)}')
 
-    # plt.figure()
+
+    # plt 1 3d figure
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     ax.plot(x_states[1], x_states[2], x_states[3])
@@ -52,27 +69,27 @@ if __name__ == "__main__":
     # obstacle ball     <geom name="obstacle" type="sphere" pos="0.15 0.15 0.7" size="0.1" rgba="0 0 1 0.5"/>
     # Define the center and radius of the ball
     # Sphere parameters
-    r = 0.15  # Radius of the sphere
-    pi = np.pi
-    cos = np.cos
-    sin = np.sin
+    # r = 0.15  # Radius of the sphere
+    # pi = np.pi
+    # cos = np.cos
+    # sin = np.sin
 
-    # Define spherical coordinates
-    phi, theta = np.mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
-    x = r * sin(phi) * cos(theta)
-    y = r * sin(phi) * sin(theta)
-    z = r * cos(phi)
+    # # Define spherical coordinates
+    # phi, theta = np.mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
+    # x = r * sin(phi) * cos(theta)
+    # y = r * sin(phi) * sin(theta)
+    # z = r * cos(phi)
 
-    # Define the center of the sphere
-    center = [0, 0, 0.7]
+    # # Define the center of the sphere
+    # center = [0, 0, 0.7]
 
-    # Shift the sphere by the center
-    x += center[0]
-    y += center[1]
-    z += center[2]
+    # # Shift the sphere by the center
+    # x += center[0]
+    # y += center[1]
+    # z += center[2]
 
-    # Plot the surface of the sphere
-    ax.plot_surface(x, y, z, color='blue', alpha=0.6)
+    # # Plot the surface of the sphere
+    # ax.plot_surface(x, y, z, color='blue', alpha=0.6)
 
     # Set axis labels
     ax.set_xlabel('X')
@@ -84,6 +101,10 @@ if __name__ == "__main__":
     ax.set_zlim([-1.5, 1.5])   # z-axis range
     ax.legend()
 
+    figure_name = U_INI_GUESS + '_' + str(initial_state) + '_3d' + '.png'
+    figure_path = os.path.join(RESULTS_DIR, figure_name)
+    plt.savefig(figure_path)
+
     # plot 2 joint space (7 joints)
     plt.figure()
     for i in range(7):
@@ -92,13 +113,19 @@ if __name__ == "__main__":
     plt.ylabel("Joint position [rad]")
     plt.legend()
 
+    figure_name = U_INI_GUESS + '_' + str(initial_state) + '_joints' + '.png'
+    figure_path = os.path.join(RESULTS_DIR, figure_name)
+    plt.savefig(figure_path)
+
     # plot 3 distance cost
     plt.figure()
     plt.plot(t, mpc_cost)
     plt.xlabel("Time [s]")
     plt.ylabel("mpc cost")
-    # fig2 = plt.figure()
-    # ax2 = fig2.add_subplot()
+
+    figure_name = U_INI_GUESS + '_' + str(initial_state) + '_cost' + '.png'
+    figure_path = os.path.join(RESULTS_DIR, figure_name)
+    plt.savefig(figure_path)
 
     # plot 4 u trajectory
     plt.figure()
@@ -108,17 +135,18 @@ if __name__ == "__main__":
     plt.ylabel("Joint Control Inputs")
     plt.legend()
 
-    # for i in range(7):
-    #     ax.plot(t, joint_states[i + 1], label=f"Joint {i+1}")
-    # ax2.set_xlabel("Time [s]")
-    # ax2.set_ylabel("Joint position [rad]")
-    # ax2.legend()
-    # plt.show()
+    figure_name = U_INI_GUESS + '_' + str(initial_state) + '_u' + '.png'
+    figure_path = os.path.join(RESULTS_DIR, figure_name)
+    plt.savefig(figure_path)
 
-    # for i in range(3):
-    #     plt.plot(t, x_states[i + 1], label=f"xpos {i+1}")
-    # plt.xlabel("Time [s]")
-    # plt.ylabel("X position")
+    # plot 5 absolute distance
+    plt.figure()
+    plt.plot(t, abs_distance)
+    plt.xlabel("Time [s]")
+    plt.ylabel("absolute distance [m]")
 
-    # plt.legend()
+    figure_name = U_INI_GUESS + '_' + str(initial_state) + '_dis' + '.png'
+    figure_path = os.path.join(RESULTS_DIR, figure_name)
+    plt.savefig(figure_path)
+
     plt.show()

@@ -6,13 +6,14 @@ import mujoco.viewer
 import time
 
 HORIZON = 128
-CONTROLLER_SAMPLE_TIME = 0.003 
-FIXED_TARGET = np.array([[0.2], [0.2], [0.9]]) # np.array([[0.4], [0.4], [0.3]])
-TARGET_POS = np.array([0.2, 0.2, 0.9]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
+SUM_CTL_STEPS = 300
+CONTROLLER_SAMPLE_TIME = 0.005
+FIXED_TARGET = np.array([[0.3], [0.3], [0.5]]) # np.array([[0.4], [0.4], [0.3]])
+TARGET_POS = np.array([0.3, 0.3, 0.5]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
 U_INI_GUESS = ca.DM([0,0,0,0,0,0,0])
 
 Q = np.diag([10,10,10])
-R = np.diag([0.5,0.5,0.5,0.5,0.5,0.5,0.5])
+R = 1
 P = np.diag([10,10,10])
 
 
@@ -110,6 +111,9 @@ class Cartesian_MPC:
         # Define obstacle center
         target_obs_center = model.set_variable(var_type="_tvp", var_name="target_obs_center", shape=(3, 1))
 
+        # Define the previous control input as an auxiliary variable or parameter
+        # u_prev = model.set_variable(var_type='_x', var_name="u_prev", shape=(7,1))
+
         # Define the control inputs (joint torques)
         tau = model.set_variable(var_type="_u", var_name="tau", shape=(7, 1))
 
@@ -127,6 +131,9 @@ class Cartesian_MPC:
         model.set_rhs("q", q_dot)
         model.set_rhs("q_dot", q_ddot)
 
+        # model.set_rhs("u_prev", tau)  # Update previous control for the next step
+        # model.set_alg('rate_constraint', ca.fabs(tau - u_prev) <= delta_u_max)
+
         model.setup()
         return model
 
@@ -143,6 +150,7 @@ class Cartesian_MPC:
             "collocation_deg": 3,
             "collocation_ni": 2,
             "store_full_solution": True,
+            "nlpsol_opts": {'ipopt.max_iter': 10}
         }
         mpc.set_param(**setup_mpc)
         # trajectory = self.get_trajectory(self.trajectory_id)
@@ -191,6 +199,7 @@ class Cartesian_MPC:
             for k in range(n_horizon + 1):
                 tvp_template["_tvp", k, "target_x_states"] = fixed_target
 
+
             # # Define a fixed initial x position
             # fixed_initial = np.array([[0.088], [0], [0.926]]) # np.array([[0], [-0.785], [0], [-2.356], [0], [1.571], [0.785]])  # Example target positions
 
@@ -210,14 +219,17 @@ class Cartesian_MPC:
         mpc.set_tvp_fun(tvp_fixed_fun)
         mpc.set_objective(mterm=mterm, lterm=lterm)
         # mpc.set_rterm(R = 1)
-        mpc.set_rterm(tau=0.5)  # Regularization term for control inputs
+        mpc.set_rterm(tau=R)  # Regularization term for control inputs
+        delta_u_max = 2
 
         # Define constraints
         mpc.bounds["lower", "_x", "q"] = -np.pi
         mpc.bounds["upper", "_x", "q"] = np.pi
 
-        # mpc.bounds["lower", "_u", "tau"] = -1000
-        # mpc.bounds["upper", "_u", "tau"] = 1000
+        # print(f'delta -- {self.data.ctrl[:7] - delta_u_max }')
+
+        mpc.bounds["lower", "_u", "tau"] = -5 # -3
+        mpc.bounds["upper", "_u", "tau"] = 5  # self.data.ctrl[:7] + delta_u_max
 
         # nonlinear constraints
         # print(f'model.x["x_0"] -- {model.x["x"][0]}')
@@ -242,7 +254,7 @@ class Cartesian_MPC:
             u_i = predicted_controls[:,i+1,0]
             delta_u = u_i - u_i_1
             # print(0.5*(ca.sumsqr(u_i)))
-            cost += Q[0,0]*(x_i[0]-TARGET_POS[0])**2 + Q[1,1]*(x_i[1]-TARGET_POS[1])**2 + Q[2,2]*(x_i[2]-TARGET_POS[2])**2 + 0.5*(ca.sumsqr(delta_u))
+            cost += Q[0,0]*(x_i[0]-TARGET_POS[0])**2 + Q[1,1]*(x_i[1]-TARGET_POS[1])**2 + Q[2,2]*(x_i[2]-TARGET_POS[2])**2 + R*(ca.sumsqr(delta_u))
 
         # terminal cost
         x_end = predicted_states[:,-1,0]
@@ -268,14 +280,13 @@ class Cartesian_MPC:
         mpc_cost = []
         abs_distance = []
 
-        max_runtime = 300
-        max_steps = 2700
         current_step = 0
 
         # control update step
         mujoco_time_step = 0.001      # MuJoCo timestep
         controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
         steps_per_control_update = int(controller_sample_time / mujoco_time_step)  # 3 steps
+        max_steps = SUM_CTL_STEPS*steps_per_control_update
     
         # with mujoco.viewer.launch_passive(panda, data) as viewer:
         # start = time.time()
@@ -286,10 +297,11 @@ class Cartesian_MPC:
             # position_error, jacp = self.compute_task_space_error(target_pos)
             # joint_velocity_command = np.dot(np.linalg.pinv(jacp), position_error)
             # data.qvel[:7] = joint_velocity_command[:7].flatten()
-                
-            mujoco.mj_step(panda, data)
+
+            # mujoco.mj_step(panda, data)
 
             if current_step % steps_per_control_update == 0:
+                # t = 0
                 end_position = self.data.body("hand").xpos.copy()
                 print(f'-------------------------------------------------------------------------')
                 print(f'end_position -- {end_position}')
@@ -320,15 +332,18 @@ class Cartesian_MPC:
                 x0[7:14] = q_dot_current[:7]
                 x0[14:17] = x_current
                 x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
+                # x0[20:27] = data.ctrl[:7].reshape(-1, 1)
 
                 for i in range(7):
                     joint_states[i + 1].append(q_current[i])
+
             
                 u0 = mpc.make_step(x0)
                 data.ctrl[:7] = u0.flatten()
 
                 predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
                 predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
+                # control_along_horizon = predicted_controls[:,0:10,:]
 
                 applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
                 for i in range(7):
@@ -345,6 +360,10 @@ class Cartesian_MPC:
             print(f'current_step -- {current_step}')
 
 
+            # data.ctrl[:7] = control_along_horizon[:,t,:].flatten()
+            # print(f'control input -- {control_along_horizon[:,t,:].flatten()}')
+            mujoco.mj_step(panda, data)
+            # t += 1
 
             # with viewer.lock():
             #     viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = int(
