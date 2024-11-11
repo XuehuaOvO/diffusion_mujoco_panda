@@ -11,8 +11,11 @@ import matplotlib.pyplot as plt
 
 TARGET_POS = np.array([0.3, 0.3, 0.5])
 U_INI_GUESS = '0_0_0_0_0_0_0'
-RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
-FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results' 
+HORIZON = 128
+SAMPLING_TIME = 0.001
+SUM_CTL_STEPS = 100
+# RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
+FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results/test' 
 
 if __name__ == "__main__":
     panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
@@ -36,8 +39,8 @@ if __name__ == "__main__":
     u_ini_guess = np.array(u_ini_guess)
 
     num_random_ini_states_for_one_u_guess = 1
-    horizon = 128
-    control_steps = 300
+    horizon = HORIZON 
+    control_steps = SUM_CTL_STEPS
 
     num_data = len(u_ini_guess) + len(u_ini_guess)*num_random_ini_states_for_one_u_guess
 
@@ -109,7 +112,7 @@ if __name__ == "__main__":
          x0_tensor[collecting_starting_pos:collecting_starting_pos+control_steps,:] = x0_1_setting_collecting 
 
          ###################### Plot results ######################
-         ts = 0.001 # 0.005
+         ts = SAMPLING_TIME # 0.005
          n = len(mpc_cost)
          # print(f'mpc_cost -- {mpc_cost}')
          print(f'n -- {n}')

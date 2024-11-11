@@ -6,7 +6,9 @@ import mujoco.viewer
 import time
 
 HORIZON = 128
-SUM_CTL_STEPS = 300
+SUM_CTL_STEPS = 100
+SAMPLING_TIME = 0.001
+CONTROL_RATE = 10
 CONTROLLER_SAMPLE_TIME = 0.01
 FIXED_TARGET = np.array([[0.3], [0.3], [0.5]]) # np.array([[0.4], [0.4], [0.3]])
 TARGET_POS = np.array([0.3, 0.3, 0.5]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
@@ -128,8 +130,8 @@ class Cartesian_Collecting_MPC:
 
     def create_mpc(self, model):
         mpc = do_mpc.controller.MPC(model)
-        n_horizon = HORIZON #32
-        t_step = 0.001
+        n_horizon = HORIZON 
+        t_step = SAMPLING_TIME
 
         setup_mpc = {
             "n_horizon": n_horizon,
@@ -139,7 +141,7 @@ class Cartesian_Collecting_MPC:
             "collocation_deg": 3,
             "collocation_ni": 2,
             "store_full_solution": True,
-            "nlpsol_opts": {'ipopt.max_iter': 10}
+            "nlpsol_opts": {'ipopt.max_iter': 20}
         }
         mpc.set_param(**setup_mpc)
         # trajectory = self.get_trajectory(self.trajectory_id)
@@ -184,8 +186,8 @@ class Cartesian_Collecting_MPC:
         mpc.bounds["upper", "_x", "q"] = np.pi
 
 
-        mpc.bounds["lower", "_u", "tau"] = -5 # -3
-        mpc.bounds["upper", "_u", "tau"] = 5  # self.data.ctrl[:7] + delta_u_max
+        # mpc.bounds["lower", "_u", "tau"] = -5 # -3
+        # mpc.bounds["upper", "_u", "tau"] = 5  # self.data.ctrl[:7] + delta_u_max
 
 
         mpc.setup()
@@ -215,8 +217,8 @@ class Cartesian_Collecting_MPC:
         return cost
 
     def _simulate_mpc_mujoco(self, mpc, panda, data, u_initial_guess):
-        control_steps = 300
-        horizon = 128
+        control_steps = SUM_CTL_STEPS
+        horizon = HORIZON
 
         # data collecting for 1 setting
         u_collecting_1_setting = np.zeros([control_steps,horizon,7])
@@ -236,15 +238,14 @@ class Cartesian_Collecting_MPC:
         current_step = 0
 
         # control update step
-        mujoco_time_step = 0.001      # MuJoCo timestep
-        controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
-        steps_per_control_update = int(controller_sample_time / mujoco_time_step)  # 3 steps
-        max_steps = SUM_CTL_STEPS*steps_per_control_update
+        # mujoco_time_step = SAMPLING_TIME      # MuJoCo timestep
+        # controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
+        max_steps = SUM_CTL_STEPS*CONTROL_RATE
         control_step = 0
 
         while current_step < max_steps: # viewer.is_running():
 
-            if current_step % steps_per_control_update == 0:
+            if current_step % CONTROL_RATE == 0:
                 # t = 0
                 end_position = self.data.body("hand").xpos.copy()
                 print(f'-------------------------------------------------------------------------')
@@ -292,7 +293,8 @@ class Cartesian_Collecting_MPC:
                     joint_inputs[i + 1].append(applied_inputs[i])
 
                 # u data collecting
-                u_collecting_1_setting[control_step,:,:] = applied_inputs.reshape(7)
+                u_collecting_array = predicted_controls.transpose(2,1,0) # 7*128*1 --> 1*128*7
+                u_collecting_1_setting[control_step,:,:] = u_collecting_array
 
                 # calculate mpc cost
                 cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
