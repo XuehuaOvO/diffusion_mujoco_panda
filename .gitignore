@@ -1,3 +1,4 @@
 # folder ignore
 /results/
 /franka_emika_panda/
+/data_collecting_results/
