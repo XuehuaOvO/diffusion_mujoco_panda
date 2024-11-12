@@ -13,9 +13,9 @@ TARGET_POS = np.array([0.3, 0.3, 0.5])
 U_INI_GUESS = '0_0_0_0_0_0_0'
 HORIZON = 128
 SAMPLING_TIME = 0.001
-SUM_CTL_STEPS = 100
+SUM_CTL_STEPS = 200
 # RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
-FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results/ts_0.003' 
+FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results/collecting_test' 
 
 if __name__ == "__main__":
     panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
@@ -28,9 +28,9 @@ if __name__ == "__main__":
 
     # define the u initial guess range
     # u_ini_guess_range = np.linspace(-2,2,41)
-    joint4_ini_guess_range = np.linspace(-2,2,1)
-    joint5_ini_guess_range = np.linspace(-2,2,1)
-    joint7_ini_guess_range = np.linspace(-2,2,1)
+    joint4_ini_guess_range = np.linspace(0,0,1)
+    joint5_ini_guess_range = np.linspace(0,0,1)
+    joint7_ini_guess_range = np.linspace(0,0,1)
     u_ini_guess = []
     for a in joint4_ini_guess_range:
          for b in joint5_ini_guess_range:
@@ -99,6 +99,8 @@ if __name__ == "__main__":
     for n in range(len(joints_ini_setting)):
          u_initial_guess = joints_ini_setting[n,0:3]
          initial_state = joints_ini_setting[n,3:9]
+         print(f'u_initial_guess -- {u_initial_guess}')
+         print(f'initial_state -- {initial_state}')
          data.qpos[:6] = initial_state 
 
          mpc = Cartesian_Collecting_MPC(panda = panda, data=data)
