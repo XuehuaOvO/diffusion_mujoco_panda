@@ -15,7 +15,7 @@ HORIZON = 128
 SAMPLING_TIME = 0.001
 SUM_CTL_STEPS = 100
 # RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
-FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results/test' 
+FOLDER_PATH = '/root/diffusion_mujoco_panda/data_collecting_results/ts_0.003' 
 
 if __name__ == "__main__":
     panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')

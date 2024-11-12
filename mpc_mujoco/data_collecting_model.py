@@ -9,10 +9,10 @@ HORIZON = 128
 SUM_CTL_STEPS = 100
 SAMPLING_TIME = 0.001
 CONTROL_RATE = 10
-CONTROLLER_SAMPLE_TIME = 0.01
+# CONTROLLER_SAMPLE_TIME = 0.01
 FIXED_TARGET = np.array([[0.3], [0.3], [0.5]]) # np.array([[0.4], [0.4], [0.3]])
 TARGET_POS = np.array([0.3, 0.3, 0.5]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
-U_INI_GUESS = ca.DM([0,0,0,1,1,0,1])
+# U_INI_GUESS = ca.DM([0,0,0,1,1,0,1])
 
 Q = np.diag([10,10,10])
 R = 0.5
@@ -25,7 +25,7 @@ class Cartesian_Collecting_MPC:
         self.panda = panda
         self.data = data
         # self.trajectory_id = trajectory_id
-        mujoco.mj_forward(data.model, data)
+        mujoco.mj_step(self.panda, data)
         self.model = self.create_model()
         self.mpc = self.create_mpc(self.model)
 
@@ -111,7 +111,7 @@ class Cartesian_Collecting_MPC:
         # Define the control inputs (joint torques)
         tau = model.set_variable(var_type="_u", var_name="tau", shape=(7, 1))
 
-        mujoco.mj_forward(self.data.model, self.data)  # initialize values
+        # mujoco.mj_forward(self.panda, self.data)  # initialize values
 
         M = self.get_inertia_matrix()
         C = self.get_coriolis()[:7].reshape(1, 7)
@@ -141,7 +141,7 @@ class Cartesian_Collecting_MPC:
             "collocation_deg": 3,
             "collocation_ni": 2,
             "store_full_solution": True,
-            "nlpsol_opts": {'ipopt.max_iter': 20}
+            "nlpsol_opts": {'ipopt.max_iter': 10}
         }
         mpc.set_param(**setup_mpc)
         # trajectory = self.get_trajectory(self.trajectory_id)
