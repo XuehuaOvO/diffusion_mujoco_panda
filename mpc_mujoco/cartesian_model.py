@@ -6,14 +6,16 @@ import mujoco.viewer
 import time
 
 HORIZON = 128
-SUM_CTL_STEPS = 300
-CONTROLLER_SAMPLE_TIME = 0.005
+SUM_CTL_STEPS = 100
+SAMPLING_TIME = 0.001
+CONTROL_RATE = 10
+# CONTROLLER_SAMPLE_TIME = 0.01
 FIXED_TARGET = np.array([[0.3], [0.3], [0.5]]) # np.array([[0.4], [0.4], [0.3]])
 TARGET_POS = np.array([0.3, 0.3, 0.5]).reshape(3, 1) # np.array([0.4, 0.4, 0.3]).reshape(3, 1)
-U_INI_GUESS = ca.DM([0,0,0,0,0,0,0])
+U_INI_GUESS = ca.DM([0,0,0,-2,-2,0,-2])
 
 Q = np.diag([10,10,10])
-R = 1
+R = 0.5
 P = np.diag([10,10,10])
 
 
@@ -86,7 +88,8 @@ class Cartesian_MPC:
         return error
 
     def create_model(self):
-        model_type = "continuous"
+        model_type = "discrete"
+        # model_type = "continuous"
         model = do_mpc.model.Model(model_type)
 
         # Define the states (joint positions and velocities)
@@ -108,29 +111,39 @@ class Cartesian_MPC:
         # define the state initial variable
         initial_x_states = model.set_variable(var_type="_tvp", var_name="initial_x_states", shape=(3, 1))
 
-        # Define obstacle center
-        target_obs_center = model.set_variable(var_type="_tvp", var_name="target_obs_center", shape=(3, 1))
-
         # Define the previous control input as an auxiliary variable or parameter
         # u_prev = model.set_variable(var_type='_x', var_name="u_prev", shape=(7,1))
 
         # Define the control inputs (joint torques)
         tau = model.set_variable(var_type="_u", var_name="tau", shape=(7, 1))
+        self.data.ctrl[:7] = ca.DM(tau).full().reshape(7)
 
-        mujoco.mj_forward(self.data.model, self.data)  # initialize values
-
-        M = self.get_inertia_matrix()
-        C = self.get_coriolis()[:7].reshape(1, 7)
-        G = self.get_gravity_forces()[:7]
-
-        q_ddot = ca.mtimes(ca.inv(M), (tau - ca.mtimes(C, q_dot) - G))
-
+        mujoco.mj_step(self.data.model, self.data)
+        # model.set_rhs("q",ca.DM(self.data.qvel[:7]))
+        model.set_rhs("q", q_dot)
+        model.set_rhs("q_dot",ca.DM(self.data.qacc[:7]))
+        # model.set_rhs("x",ca.DM(self.data.cvel[9,:3]))
         model.set_rhs("x",x_dot)
         model.set_rhs("x_dot", jacp@q_dot)
 
-        model.set_rhs("q", q_dot)
-        model.set_rhs("q_dot", q_ddot)
 
+
+        # mujoco.mj_forward(self.data.model, self.data)  # initialize values
+
+        # M = self.get_inertia_matrix()
+        # C = self.get_coriolis()[:7].reshape(1, 7)
+        # G = self.get_gravity_forces()[:7]
+
+        # q_ddot = ca.mtimes(ca.inv(M), (tau - ca.mtimes(C, q_dot) - G))
+
+        # model.set_rhs("x",x_dot)
+        # model.set_rhs("x_dot", jacp@q_dot)
+
+        # model.set_rhs("q", q_dot)
+        # model.set_rhs("q_dot", q_ddot)
+
+
+        # ------------------------------------------------------------------------------------
         # model.set_rhs("u_prev", tau)  # Update previous control for the next step
         # model.set_alg('rate_constraint', ca.fabs(tau - u_prev) <= delta_u_max)
 
@@ -140,7 +153,7 @@ class Cartesian_MPC:
     def create_mpc(self, model):
         mpc = do_mpc.controller.MPC(model)
         n_horizon = HORIZON #32
-        t_step = 0.001
+        t_step = SAMPLING_TIME
 
         setup_mpc = {
             "n_horizon": n_horizon,
@@ -283,10 +296,10 @@ class Cartesian_MPC:
         current_step = 0
 
         # control update step
-        mujoco_time_step = 0.001      # MuJoCo timestep
-        controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
-        steps_per_control_update = int(controller_sample_time / mujoco_time_step)  # 3 steps
-        max_steps = SUM_CTL_STEPS*steps_per_control_update
+        # mujoco_time_step = 0.001      # MuJoCo timestep
+        # controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
+        # steps_per_control_update = int(controller_sample_time / mujoco_time_step)  # 3 steps
+        max_steps = SUM_CTL_STEPS*CONTROL_RATE
     
         # with mujoco.viewer.launch_passive(panda, data) as viewer:
         # start = time.time()
@@ -300,7 +313,7 @@ class Cartesian_MPC:
 
             # mujoco.mj_step(panda, data)
 
-            if current_step % steps_per_control_update == 0:
+            if current_step % CONTROL_RATE == 0:
                 # t = 0
                 end_position = self.data.body("hand").xpos.copy()
                 print(f'-------------------------------------------------------------------------')
@@ -345,7 +358,7 @@ class Cartesian_MPC:
                 predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
                 # control_along_horizon = predicted_controls[:,0:10,:]
 
-                applied_inputs = predicted_controls[:,-1,0].reshape(-1, 1)
+                applied_inputs = predicted_controls[:,0,0].reshape(-1, 1)
                 for i in range(7):
                     joint_inputs[i + 1].append(applied_inputs[i])
 

@@ -10,8 +10,8 @@ from mpc_mujoco.joint_model import Joint_MPC
 import matplotlib.pyplot as plt
 
 TARGET_POS = np.array([0.3, 0.3, 0.5])
-U_INI_GUESS = '0_0_0_0_0_0_0'
-RESULTS_DIR = '/root/diffusion_mujoco_panda/results/10_1_10'
+U_INI_GUESS = '0_0_0_-2_-2_0_-2'
+RESULTS_DIR = '/root/diffusion_mujoco_panda/results/discrete_dy'
 
 if __name__ == "__main__":
     # panda = load_robot_description("panda_mj_description")
@@ -32,7 +32,8 @@ if __name__ == "__main__":
     gaussian_noise_6 = np.round(np.random.normal(mean, std_dev),2)
 
     # initial_state = [gaussian_noise_1, gaussian_noise_2, gaussian_noise_3, gaussian_noise_4, gaussian_noise_5, gaussian_noise_6]
-    initial_state = [0,0,0,0,0,0]
+    # initial_state = [ 0.05, -0.01,  0.06,  0.15, -0.02, -0.02]
+    initial_state = [ 0, 0, 0, 0, 0, 0]
     data.qpos[:6] = initial_state # different joints initial states
 
     print(f'initial q_pos -- {np.array(data.qpos).reshape(-1, 1)}')
