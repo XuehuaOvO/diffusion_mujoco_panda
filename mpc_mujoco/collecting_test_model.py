@@ -407,8 +407,113 @@ class Cartesian_Collecting_MPC:
         return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting
 
 
+    def _simulate_single_step(self, mpc, panda, data, u_guess):
+        control_steps = 1
+        horizon = HORIZON
+
+        # data collecting for 1 setting
+        u_collecting_1_step = np.zeros([control_steps,horizon,7])
+        x_collecting_1_step = np.zeros([control_steps,20])
+
+        x0 = np.zeros((20, 1))
+        mpc.x0 = x0
+        mpc.u0 = ca.DM(u_guess)
+        mpc.set_initial_guess()
+
+        joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        joint_inputs = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        x_states = {1: [], 2: [], 3: []}
+        mpc_cost = []
+        abs_distance = []
+
+        current_step = 0
+
+        # control update step
+        # mujoco_time_step = SAMPLING_TIME      # MuJoCo timestep
+        # controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
+        max_steps = SUM_CTL_STEPS*CONTROL_RATE
+        control_step = 0
+
+        # while current_step < max_steps: # viewer.is_running():
+
+            # if current_step % CONTROL_RATE == 0:
+                # t = 0
+        end_position = self.data.body("hand").xpos.copy()
+        print(f'-------------------------------------------------------------------------')
+        print(f'end_position -- {end_position}')
+        print(f'-------------------------------------------------------------------------')
+        distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
+        print(f'distance -- {distance}')
+        abs_distance.append(distance)
+
+
+        for i in range(3):
+            x_states[i + 1].append(end_position[i])
+
+        # Position Jacobian
+        jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
+        jacp = jacp[:, :7] # 3*7
+
+        q_current = np.array(data.qpos).reshape(-1, 1)
+        q_dot_current = np.array(data.qvel).reshape(-1, 1)
+        x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
+        x0[:7] = q_current[:7]
+        x0[7:14] = q_dot_current[:7]
+        x0[14:17] = x_current
+        x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
+
+        # x0 data collecting
+        x_collecting_1_step = x0
+
+
+
+
+        for i in range(7):
+            joint_states[i + 1].append(q_current[i])
+
+    
+        u0 = mpc.make_step(x0)
+        data.ctrl[:7] = u0.flatten()
+
+        predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
+        predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
+        # control_along_horizon = predicted_controls[:,0:10,:]
+
+        applied_inputs = predicted_controls[:,0,0].reshape(-1, 1)
+        for i in range(7):
+            joint_inputs[i + 1].append(applied_inputs[i])
+
+        # u data collecting
+        u_collecting_array = predicted_controls.transpose(2,1,0) # 7*128*1 --> 1*128*7
+        u_collecting_1_step[control_step,:,:] = u_collecting_array
+
+        # calculate mpc cost
+        cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
+        print(f'cost -- {cost}')
+        cost = cost.toarray().reshape(-1)
+        mpc_cost.append(cost)
+        control_step = control_step + 1
+                
+        current_step += 1
+        print(f'current_step -- {current_step}')
+
+        mujoco.mj_step(panda, data)
+        
+        # new q state
+        updated_joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        updated_q = np.array(data.qpos).reshape(-1, 1)
+
+        for i in range(7):
+            updated_joint_states[i + 1].append(updated_q[i])       
+
+        return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x_collecting_1_step, u_collecting_1_step, updated_joint_states
+
+
     def simulate(self,u_initial_guess):
         return self._simulate_mpc_mujoco(self.mpc, self.data.model, self.data, u_initial_guess)
     
     def noise_simulate(self,u_initial_guess):
         return self._simulate_noise_data(self.mpc, self.data.model, self.data, u_initial_guess)
+    
+    def single_simulate(self,u_guess):
+        return self._simulate_single_step(self.mpc, self.data.model, self.data, u_guess)
