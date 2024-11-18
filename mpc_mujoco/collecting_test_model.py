@@ -4,9 +4,9 @@ import do_mpc
 import mujoco
 import mujoco.viewer
 import time
-
+NOISE_DATA_PER_STATE = 20
 HORIZON = 128
-SUM_CTL_STEPS = 200
+SUM_CTL_STEPS = 200 #200
 SAMPLING_TIME = 0.001
 CONTROL_RATE = 10
 # CONTROLLER_SAMPLE_TIME = 0.01
@@ -103,10 +103,10 @@ class Cartesian_Collecting_MPC:
         target_x_states = model.set_variable(var_type="_tvp", var_name="target_x_states", shape=(3, 1))
 
         # define the state initial variable
-        initial_x_states = model.set_variable(var_type="_tvp", var_name="initial_x_states", shape=(3, 1))
+        # initial_x_states = model.set_variable(var_type="_tvp", var_name="initial_x_states", shape=(3, 1))
 
         # Define obstacle center
-        target_obs_center = model.set_variable(var_type="_tvp", var_name="target_obs_center", shape=(3, 1))
+        # target_obs_center = model.set_variable(var_type="_tvp", var_name="target_obs_center", shape=(3, 1))
 
         # Define the control inputs (joint torques)
         tau = model.set_variable(var_type="_u", var_name="tau", shape=(7, 1))
@@ -141,7 +141,7 @@ class Cartesian_Collecting_MPC:
             "collocation_deg": 3,
             "collocation_ni": 2,
             "store_full_solution": True,
-            "nlpsol_opts": {'ipopt.max_iter': 10}
+            "nlpsol_opts": {'ipopt.max_iter': 10, 'ipopt.print_level':0, 'print_time':0, 'ipopt.sb': 'yes'}
         }
         mpc.set_param(**setup_mpc)
         # trajectory = self.get_trajectory(self.trajectory_id)
@@ -222,11 +222,11 @@ class Cartesian_Collecting_MPC:
 
         # data collecting for 1 setting
         u_collecting_1_setting = np.zeros([control_steps,horizon,7])
-        x0_collecting_1_setting = np.zeros([control_steps,6])
+        x0_collecting_1_setting = np.zeros([control_steps,20])
 
         x0 = np.zeros((20, 1))
         mpc.x0 = x0
-        mpc.u0 = ca.DM([u_initial_guess])
+        mpc.u0 = ca.DM(u_initial_guess)
         mpc.set_initial_guess()
 
         joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
@@ -272,10 +272,7 @@ class Cartesian_Collecting_MPC:
                 x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
 
                 # x0 data collecting
-                x0_collecting_1_setting[control_step,0:3] = x0[14:17].reshape(3)
-                x0_collecting_1_setting[control_step,3:6] = x0[17:20].reshape(3)
-
-
+                x0_collecting_1_setting[control_step,:] = x0.reshape(1,20)
 
                 for i in range(7):
                     joint_states[i + 1].append(q_current[i])
@@ -304,7 +301,7 @@ class Cartesian_Collecting_MPC:
                 control_step = control_step + 1
                 
             current_step += 1
-            print(f'current_step -- {current_step}')
+            # print(f'current_step -- {current_step}')
 
             mujoco.mj_step(panda, data)
             
@@ -420,11 +417,11 @@ class Cartesian_Collecting_MPC:
         mpc.u0 = ca.DM(u_guess)
         mpc.set_initial_guess()
 
-        joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
-        joint_inputs = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        joint_states = np.zeros([1,7])
+        joint_inputs = np.zeros([1,7])
         x_states = {1: [], 2: [], 3: []}
-        mpc_cost = []
-        abs_distance = []
+        mpc_cost = np.zeros([1,1])
+        abs_distance = np.zeros([1,1])
 
         current_step = 0
 
@@ -444,7 +441,7 @@ class Cartesian_Collecting_MPC:
         print(f'-------------------------------------------------------------------------')
         distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
         print(f'distance -- {distance}')
-        abs_distance.append(distance)
+        abs_distance = distance
 
 
         for i in range(3):
@@ -467,9 +464,9 @@ class Cartesian_Collecting_MPC:
 
 
 
-
-        for i in range(7):
-            joint_states[i + 1].append(q_current[i])
+        joint_states[0,:] = q_current[:7].reshape(7)
+        # for i in range(7):
+        #     joint_states[i + 1].append(q_current[i])
 
     
         u0 = mpc.make_step(x0)
@@ -480,8 +477,9 @@ class Cartesian_Collecting_MPC:
         # control_along_horizon = predicted_controls[:,0:10,:]
 
         applied_inputs = predicted_controls[:,0,0].reshape(-1, 1)
-        for i in range(7):
-            joint_inputs[i + 1].append(applied_inputs[i])
+        # for i in range(7):
+        #     joint_inputs[i + 1].append(applied_inputs[i])
+        joint_inputs[0,:] = applied_inputs[:7].reshape(7)
 
         # u data collecting
         u_collecting_array = predicted_controls.transpose(2,1,0) # 7*128*1 --> 1*128*7
@@ -491,7 +489,7 @@ class Cartesian_Collecting_MPC:
         cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
         print(f'cost -- {cost}')
         cost = cost.toarray().reshape(-1)
-        mpc_cost.append(cost)
+        mpc_cost = cost.item()
         control_step = control_step + 1
                 
         current_step += 1
@@ -500,20 +498,23 @@ class Cartesian_Collecting_MPC:
         mujoco.mj_step(panda, data)
         
         # new q state
-        updated_joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        updated_joint_states = np.zeros(7)
         updated_q = np.array(data.qpos).reshape(-1, 1)
 
         for i in range(7):
-            updated_joint_states[i + 1].append(updated_q[i])       
+            updated_joint_states[i] = (updated_q[i])       
 
         return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x_collecting_1_step, u_collecting_1_step, updated_joint_states
 
 
-    def simulate(self,u_initial_guess):
+    def simulate(self,u_initial_guess,initial_state):
+        self.data.qpos[:7] = initial_state
         return self._simulate_mpc_mujoco(self.mpc, self.data.model, self.data, u_initial_guess)
     
-    def noise_simulate(self,u_initial_guess):
-        return self._simulate_noise_data(self.mpc, self.data.model, self.data, u_initial_guess)
+    # def noise_simulate(self,u_initial_guess,initial_state):
+    #     self.data.qpos[:7] = initial_state
+    #     return self._simulate_noise_data(self.mpc, self.data.model, self.data, u_initial_guess)
     
-    def single_simulate(self,u_guess):
+    def single_simulate(self,u_guess,noisy_state):
+        self.data.qpos[:7] = noisy_state
         return self._simulate_single_step(self.mpc, self.data.model, self.data, u_guess)
