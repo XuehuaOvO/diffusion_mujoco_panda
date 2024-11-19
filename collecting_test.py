@@ -11,15 +11,15 @@ from mpc_mujoco.joint_model import Joint_MPC
 
 import matplotlib.pyplot as plt
 # Setting
-NUM_INI_STATES = 50
+NUM_INI_STATES = 25
 NOISE_DATA_PER_STATE = 20
 CONTROL_STEPS = 200 #200
 NUM_SEED = 42
-MAX_CORE_CPU = 28
+MAX_CORE_CPU = 1
 
 SAMPLING_TIME = 0.001
 TARGET_POS = np.array([0.3, 0.3, 0.5])
-FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test' 
+FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_3' 
 
 def main():
     num_seed = NUM_SEED
@@ -74,9 +74,9 @@ def main():
     j_data = torch.cat((torch_j_ini_memory_tensor, torch_j_random_memory_tensor), dim=0)
 
     # save data in PT file for training
-    torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_'+ 'test1.pt'))
-    torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_'+ 'test1.pt'))
-    torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_'+ 'test1.pt'))
+    torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_'+ 'test3.pt'))
+    torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_'+ 'test3.pt'))
+    torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_'+ 'test3.pt'))
 
 
 
@@ -165,7 +165,7 @@ def ini_0_data_generating():
     return ini_0_states, random_ini_u_guess, data_idx
 
 
-def states_noise_generating(current_states):
+def states_noise_generating(current_states,current_inputs):
     np.random.seed(NUM_SEED)
 
     # add Gaussian noise to the random initial states
@@ -183,10 +183,10 @@ def states_noise_generating(current_states):
 
     noisy_data_u_guess_list = []
     for i in range(NOISE_DATA_PER_STATE):
-          u_noisy_guess_4 = np.round(random.uniform(-2, 2),2)
-          u_noisy_guess_5 = np.round(random.uniform(-2, 2),2)
-          u_noisy_guess_7 = np.round(random.uniform(-2, 2),2)
-          noisy_data_u_guess_list.append([0,0,0,u_noisy_guess_4,u_noisy_guess_5,0,u_noisy_guess_7])
+          u_noisy_guess_4 = np.round(random.uniform(current_inputs[3]-2, current_inputs[3]+2),2)
+          u_noisy_guess_5 = np.round(random.uniform(current_inputs[4]-2, current_inputs[4]+2),2)
+          u_noisy_guess_7 = np.round(random.uniform(current_inputs[6]-2, current_inputs[6]+2),2)
+          noisy_data_u_guess_list.append([current_inputs[0],current_inputs[1],current_inputs[2],u_noisy_guess_4,u_noisy_guess_5,current_inputs[5],u_noisy_guess_7])
     noisy_data_u_guess =  np.array(noisy_data_u_guess_list) # 20*7
           
     return states_noise_array, noisy_data, noisy_data_u_guess
@@ -201,7 +201,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             mpc = Cartesian_Collecting_MPC(panda = panda, data=data)
 
             # normal simulation
-            ini_joint_states, ini_x_states, ini_mpc_cost, ini_joint_inputs, ini_abs_distance, x_collecting_ini, u_collecting_ini = mpc.simulate(initial_guess,initial_state)
+            ini_joint_states, ini_x_states, ini_mpc_cost, ini_joint_inputs, ini_abs_distance, x_collecting_ini, u_collecting_ini = mpc.simulate(initial_guess,initial_state,initial_idx)
             #new_joint_states = np.array(new_joint_states)
             print(f'index {initial_idx.item()} initial data control loop finished!!!!!!')
             print(f'x_data size -- {x_collecting_ini.shape}')
@@ -226,15 +226,22 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             
             ############################################## data with noise ##############################################
             current_states = np.zeros(7)
+            current_inputs = np.zeros(7)
             for ctl_step in range(CONTROL_STEPS):
                   print(f'[initial_idx, ctl_step] -- {initial_idx},{ctl_step}')
                   for i in range(7):
                         current_states[i] = ini_joint_states[i+1][ctl_step]
+
+                  if ctl_step == 0:
+                        current_inputs = initial_guess
+                  else:
+                        for i in range(7):
+                              current_inputs[i] = ini_joint_inputs[i+1][ctl_step-1]
                   # data.qpos[:7] = current_states
                   # mpc = Cartesian_Collecting_MPC(panda = panda, data=data)
 
                   # noisy data generating
-                  noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states) # 20*7
+                  noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states,current_inputs) # 20*7
 
                   # print(f'current_states -- {current_states}')
 
@@ -273,7 +280,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
                         # print(f'noisy_state -- {noisy_state_n}')
                         # print(f'noisy_u_guess -- {noisy_u_guess}')
 
-                        random_joint_states, random_x_states, random_mpc_cost, random_joint_inputs, random_abs_distance, x_noisy_collecting_1_step, u_noisy_collecting_1_step, new_noisy_joint_states = mpc.single_simulate(noisy_u_guess,noisy_state_n)
+                        random_joint_states, random_x_states, random_mpc_cost, random_joint_inputs, random_abs_distance, x_noisy_collecting_1_step, u_noisy_collecting_1_step, new_noisy_joint_states = mpc.single_simulate(noisy_u_guess,noisy_state_n,initial_idx)
 
                         # noi_joint_states.append(random_joint_states)
                         # noi_joint_inputs.append(random_joint_inputs)

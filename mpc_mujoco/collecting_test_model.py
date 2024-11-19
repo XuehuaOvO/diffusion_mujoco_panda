@@ -216,7 +216,7 @@ class Cartesian_Collecting_MPC:
 
         return cost
 
-    def _simulate_mpc_mujoco(self, mpc, panda, data, u_initial_guess):
+    def _simulate_mpc_mujoco(self, mpc, panda, data, u_initial_guess, initial_idx):
         control_steps = SUM_CTL_STEPS
         horizon = HORIZON
 
@@ -249,7 +249,7 @@ class Cartesian_Collecting_MPC:
                 # t = 0
                 end_position = self.data.body("hand").xpos.copy()
                 print(f'-------------------------------------------------------------------------')
-                print(f'end_position -- {end_position}')
+                print(f'initial_idx, current_step, end_position -- {initial_idx, current_step, end_position}')
                 print(f'-------------------------------------------------------------------------')
                 distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
                 print(f'distance -- {distance}')
@@ -404,7 +404,7 @@ class Cartesian_Collecting_MPC:
         return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting
 
 
-    def _simulate_single_step(self, mpc, panda, data, u_guess):
+    def _simulate_single_step(self, mpc, panda, data, u_guess, initial_idx):
         control_steps = 1
         horizon = HORIZON
 
@@ -437,7 +437,7 @@ class Cartesian_Collecting_MPC:
                 # t = 0
         end_position = self.data.body("hand").xpos.copy()
         print(f'-------------------------------------------------------------------------')
-        print(f'end_position -- {end_position}')
+        print(f'noisy: initial_idx, current_step, end_position -- {initial_idx, current_step, end_position}')
         print(f'-------------------------------------------------------------------------')
         distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
         print(f'distance -- {distance}')
@@ -507,14 +507,14 @@ class Cartesian_Collecting_MPC:
         return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x_collecting_1_step, u_collecting_1_step, updated_joint_states
 
 
-    def simulate(self,u_initial_guess,initial_state):
+    def simulate(self,u_initial_guess,initial_state, initial_idx):
         self.data.qpos[:7] = initial_state
-        return self._simulate_mpc_mujoco(self.mpc, self.data.model, self.data, u_initial_guess)
+        return self._simulate_mpc_mujoco(self.mpc, self.data.model, self.data, u_initial_guess, initial_idx)
     
     # def noise_simulate(self,u_initial_guess,initial_state):
     #     self.data.qpos[:7] = initial_state
     #     return self._simulate_noise_data(self.mpc, self.data.model, self.data, u_initial_guess)
     
-    def single_simulate(self,u_guess,noisy_state):
+    def single_simulate(self,u_guess,noisy_state, initial_idx):
         self.data.qpos[:7] = noisy_state
-        return self._simulate_single_step(self.mpc, self.data.model, self.data, u_guess)
+        return self._simulate_single_step(self.mpc, self.data.model, self.data, u_guess, initial_idx)
