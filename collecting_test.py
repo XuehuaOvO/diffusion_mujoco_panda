@@ -280,7 +280,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
                         # print(f'noisy_state -- {noisy_state_n}')
                         # print(f'noisy_u_guess -- {noisy_u_guess}')
 
-                        random_joint_states, random_x_states, random_mpc_cost, random_joint_inputs, random_abs_distance, x_noisy_collecting_1_step, u_noisy_collecting_1_step, new_noisy_joint_states = mpc.single_simulate(noisy_u_guess,noisy_state_n,initial_idx)
+                        random_joint_states, random_x_states, random_mpc_cost, random_joint_inputs, random_abs_distance, x_noisy_collecting_1_step, u_noisy_collecting_1_step, new_noisy_joint_states = mpc.single_simulate(noisy_u_guess,noisy_state_n,initial_idx, ctl_step, n)
 
                         # noi_joint_states.append(random_joint_states)
                         # noi_joint_inputs.append(random_joint_inputs)
