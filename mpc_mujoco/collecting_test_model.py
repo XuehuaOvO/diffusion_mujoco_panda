@@ -5,7 +5,7 @@ import random
 import mujoco
 import mujoco.viewer
 import time
-NOISE_DATA_PER_STATE = 20
+NOISE_DATA_PER_STATE = 20 # 20
 HORIZON = 128
 SUM_CTL_STEPS = 200 #200
 SAMPLING_TIME = 0.001
@@ -539,7 +539,7 @@ class Cartesian_Collecting_MPC:
 
         x0 = np.zeros((20, 1))
         mpc.x0 = x0
-        mpc.u0 = ca.DM(SG_u_guess)
+        mpc.u0 = ca.DM(SG_u_guess.reshape(7,1))
         mpc.set_initial_guess()
 
         joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
@@ -568,7 +568,7 @@ class Cartesian_Collecting_MPC:
                 abs_distance.append(distance)
                
                 if current_step > 0:
-                    mpc.u0 = ca.DM(next_guess)
+                    mpc.u0 = ca.DM(next_guess.reshape(7,1))
                     mpc.set_initial_guess()
 
                 for i in range(3):
@@ -620,10 +620,11 @@ class Cartesian_Collecting_MPC:
                 mpc_cost.append(cost)
                 control_step = control_step + 1
                 # next u guess
-                next_guess = self.next_guess_generating(u0.flatten())
+                u0_array = np.array(u0.flatten())
+                next_guess = self.next_guess_generating(u0_array)
                 
             current_step += 1
-            # print(f'current_step -- {current_step}')
+            print(f'current_step -- {current_step}')
 
             mujoco.mj_step(panda, data)
             
@@ -681,7 +682,7 @@ class Cartesian_Collecting_MPC:
                     temp_abs_distance.append(distance)
                 
                     if current_step > 0:
-                        mpc.u0 = ca.DM(next_u_MG_guesses[num_u,:])
+                        mpc.u0 = ca.DM(next_u_MG_guesses[num_u,:].reshape(7,1))
                         mpc.set_initial_guess()
                     else:
                         mpc.u0 = ca.DM(MG_u_guess[num_u,:])
@@ -749,8 +750,8 @@ class Cartesian_Collecting_MPC:
                 abs_distance.append(temp_abs_distance[min_index])
                 delta_t_list.append(temp_delta_t_list[min_index])
 
-                u_collecting_1_setting[current_step,:,:] = temp_u_collecting_1_setting[min_index,:,:]
-                x0_collecting_1_setting[current_step,:,:] = temp_x0_collecting_1_setting[min_index,:]
+                u_collecting_1_setting[control_step,:,:] = temp_u_collecting_1_setting[min_index,:,:]
+                x0_collecting_1_setting[control_step,:] = temp_x0_collecting_1_setting[min_index,:]
 
                 # control step update
                 control_step = control_step + 1
@@ -761,9 +762,14 @@ class Cartesian_Collecting_MPC:
                     MG_current_inputs[i] = temp_joint_inputs[i+1][min_index]
                 next_u_MG_guesses = self.next_MG_guesses_generating(MG_current_inputs)  
 
-            current_step += 1
-            # print(f'current_step -- {current_step}')
+                u_min = np.zeros(7)
+                for i in range(7):
+                    u_min[i] = joint_inputs[i+1][-1]
+                data.ctrl[:7] = u_min
 
+            current_step += 1
+            print(f'current_step -- {current_step}')
+            
             mujoco.mj_step(panda, data)
             
         return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting, delta_t_list
@@ -786,7 +792,7 @@ class Cartesian_Collecting_MPC:
 
 
 
-    def next_guess_generating(current_inputs):
+    def next_guess_generating(self, current_inputs):
         np.random.seed(NUM_SEED)
 
         next_u_guess = []
@@ -801,7 +807,7 @@ class Cartesian_Collecting_MPC:
     
     
 
-    def next_MG_guesses_generating(current_inputs):
+    def next_MG_guesses_generating(self, current_inputs):
         np.random.seed(NUM_SEED)
 
         next_u_MG_guess = []
