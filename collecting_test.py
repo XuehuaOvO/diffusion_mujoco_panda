@@ -3,7 +3,7 @@ import numpy as np
 import random
 import os
 import torch
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool, Manager, shared_memory
 
 from mpc_mujoco.model import MPC
 from mpc_mujoco.collecting_test_model import Cartesian_Collecting_MPC
@@ -11,15 +11,15 @@ from mpc_mujoco.joint_model import Joint_MPC
 
 import matplotlib.pyplot as plt
 # Setting
-NUM_INI_STATES = 25
-NOISE_DATA_PER_STATE = 20
+NUM_INI_STATES = 28 # 25
+NOISE_DATA_PER_STATE = 20 # 20
 CONTROL_STEPS = 200 #200
 NUM_SEED = 42
-MAX_CORE_CPU = 25
+MAX_CORE_CPU = 28
 
 SAMPLING_TIME = 0.001
 TARGET_POS = np.array([0.3, 0.3, 0.5])
-FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_3' 
+FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_4' 
 
 def main():
     num_seed = NUM_SEED
@@ -29,13 +29,16 @@ def main():
     # initial data generating 50*7, 50*7, 50
     ini_0_states, random_ini_u_guess, ini_data_idx = ini_data_generating()
 
+    # memories u,x,j
+
+
     # memories for data
-    u_ini_memory = np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 128, 7)) # 50*1*200, 128, 7
-    u_random_memory = np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 128, 7)) # 50*20*200, 128, 7
-    x_ini_memory = np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 20)) # 50*1*200, 20 (q q_dot x x_dot)
-    x_random_memory = np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 20)) # 50*20*200, 20 (q q_dot x x_dot)
-    j_ini_memory = np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 1)) # 50*1*200, 1
-    j_random_memory = np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 1)) # 50*20*200, 1
+    u_ini_memory = np.zeros((1*CONTROL_STEPS, 128, 7)) # 1*200, 128, 7 np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 128, 7)).tolist()
+    u_random_memory = np.zeros((NOISE_DATA_PER_STATE*CONTROL_STEPS, 128, 7))# 20*200, 128, 7 np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 128, 7)).tolist()
+    x_ini_memory = np.zeros((1*CONTROL_STEPS, 20)) # 1*200, 20 (q q_dot x x_dot) np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 20)).tolist()
+    x_random_memory = np.zeros((NOISE_DATA_PER_STATE*CONTROL_STEPS, 20)) # 20*200, 20 (q q_dot x x_dot) np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 20)).tolist()
+    j_ini_memory = np.zeros((1*CONTROL_STEPS, 1)) # 1*200, 1 np.zeros((NUM_INI_STATES*1*CONTROL_STEPS, 1)).tolist()
+    j_random_memory = np.zeros((NOISE_DATA_PER_STATE*CONTROL_STEPS, 1)) # 20*200, 1 np.zeros((NUM_INI_STATES*NOISE_DATA_PER_STATE*CONTROL_STEPS, 1)).tolist()
 
       #     # panda mujoco
       #     panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
@@ -60,23 +63,23 @@ def main():
     with Pool(processes=MAX_CORE_CPU) as pool:
           pool.starmap(single_ini_process, initial_data_groups)
 
-    # to tensor
-    torch_u_ini_memory_tensor = torch.Tensor(u_ini_memory)
-    torch_u_random_memory_tensor = torch.Tensor(u_random_memory)
-    torch_x_ini_memory_tensor = torch.Tensor(x_ini_memory)
-    torch_x_random_memory_tensor = torch.Tensor(x_random_memory)
-    torch_j_ini_memory_tensor = torch.Tensor(j_ini_memory)
-    torch_j_random_memory_tensor = torch.Tensor(j_random_memory)
+#     # to tensor
+#     torch_u_ini_memory_tensor = torch.Tensor(u_ini_memory)
+#     torch_u_random_memory_tensor = torch.Tensor(u_random_memory)
+#     torch_x_ini_memory_tensor = torch.Tensor(x_ini_memory)
+#     torch_x_random_memory_tensor = torch.Tensor(x_random_memory)
+#     torch_j_ini_memory_tensor = torch.Tensor(j_ini_memory)
+#     torch_j_random_memory_tensor = torch.Tensor(j_random_memory)
  
-    # cat
-    u_data = torch.cat((torch_u_ini_memory_tensor, torch_u_random_memory_tensor), dim=0)
-    x_data = torch.cat((torch_x_ini_memory_tensor, torch_x_random_memory_tensor), dim=0)
-    j_data = torch.cat((torch_j_ini_memory_tensor, torch_j_random_memory_tensor), dim=0)
+#     # cat
+#     u_data = torch.cat((torch_u_ini_memory_tensor, torch_u_random_memory_tensor), dim=0)
+#     x_data = torch.cat((torch_x_ini_memory_tensor, torch_x_random_memory_tensor), dim=0)
+#     j_data = torch.cat((torch_j_ini_memory_tensor, torch_j_random_memory_tensor), dim=0)
 
-    # save data in PT file for training
-    torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_'+ 'test3.pt'))
-    torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_'+ 'test3.pt'))
-    torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_'+ 'test3.pt'))
+#     # save data in PT file for training
+#     torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_'+ 'test4.pt'))
+#     torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_'+ 'test4.pt'))
+#     torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_'+ 'test4.pt'))
 
 
 
@@ -208,10 +211,16 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             print(f'u_data size -- {u_collecting_ini.shape}')
             print(f'----------------------------------------------------')
 
+            u_ini_memory = u_collecting_ini
+            x_ini_memory = x_collecting_ini.reshape(CONTROL_STEPS,20)
+            j_ini_memory =  np.array(ini_mpc_cost).reshape(CONTROL_STEPS,1)
+            
+            # u_ini_memory.append(u_collecting_ini.tolist())
+            # x_ini_memory.append(x_collecting_ini.tolist())
+            # ini_cost = np.array(ini_mpc_cost).reshape(CONTROL_STEPS,1)
+            # j_ini_memory.append(ini_cost.tolist())
 
-            u_ini_memory[CONTROL_STEPS*(initial_idx.item()):CONTROL_STEPS*(initial_idx.item()) + CONTROL_STEPS, :, :] = u_collecting_ini
-            x_ini_memory[CONTROL_STEPS*(initial_idx.item()):CONTROL_STEPS*(initial_idx.item()) + CONTROL_STEPS, :] = x_collecting_ini.reshape(CONTROL_STEPS,20)
-            j_ini_memory[CONTROL_STEPS*(initial_idx.item()):CONTROL_STEPS*(initial_idx.item()) + CONTROL_STEPS, :] =  np.array(ini_mpc_cost).reshape(CONTROL_STEPS,1)
+
 
             # std_joint_states = []
             # std_joint_inputs = []
@@ -233,7 +242,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
                         current_states[i] = ini_joint_states[i+1][ctl_step]
 
                   if ctl_step == 0:
-                        current_inputs = initial_guess
+                        current_inputs = initial_guess.copy()
                   else:
                         for i in range(7):
                               current_inputs[i] = ini_joint_inputs[i+1][ctl_step-1]
@@ -268,7 +277,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
                   
                   # data with noise
 
-                  noise_data_starting_pos = (initial_idx.item())*CONTROL_STEPS*NOISE_DATA_PER_STATE
+                  # noise_data_starting_pos = (initial_idx.item())*CONTROL_STEPS*NOISE_DATA_PER_STATE
                   for n in range(NOISE_DATA_PER_STATE):
                         noisy_state_n = noisy_states[n,:]
                         # data.qpos[:7] = noisy_state
@@ -294,13 +303,31 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
                         noi_abs_distance[ctl_step,n,0] = random_abs_distance
                         
                         # save noisy data
-                        print(f'location -- {noise_data_starting_pos + n * CONTROL_STEPS + ctl_step}')
-                        u_random_memory[noise_data_starting_pos + n * CONTROL_STEPS + ctl_step, :, :] = u_noisy_collecting_1_step
-                        x_random_memory[noise_data_starting_pos + n * CONTROL_STEPS + ctl_step, :] = x_noisy_collecting_1_step.reshape(1,20)
-                        j_random_memory[noise_data_starting_pos + n * CONTROL_STEPS + ctl_step, 0] = np.array(random_mpc_cost).reshape(1,1)
+                        print(f'location -- {n * CONTROL_STEPS + ctl_step}')
+                        u_random_memory[n * CONTROL_STEPS + ctl_step, :, :] = u_noisy_collecting_1_step
+                        x_random_memory[n * CONTROL_STEPS + ctl_step, :] = x_noisy_collecting_1_step.reshape(1,20)
+                        j_random_memory[n * CONTROL_STEPS + ctl_step, 0] = np.array(random_mpc_cost).reshape(1,1)
 
                         # print(f'n --{n}')
 
+            #################### data saving
+            # to tensor
+            torch_u_ini_memory_tensor = torch.Tensor(u_ini_memory)
+            torch_u_random_memory_tensor = torch.Tensor(u_random_memory)
+            torch_x_ini_memory_tensor = torch.Tensor(x_ini_memory)
+            torch_x_random_memory_tensor = torch.Tensor(x_random_memory)
+            torch_j_ini_memory_tensor = torch.Tensor(j_ini_memory)
+            torch_j_random_memory_tensor = torch.Tensor(j_random_memory)
+            
+            # cat
+            u_data = torch.cat((torch_u_ini_memory_tensor, torch_u_random_memory_tensor), dim=0)
+            x_data = torch.cat((torch_x_ini_memory_tensor, torch_x_random_memory_tensor), dim=0)
+            j_data = torch.cat((torch_j_ini_memory_tensor, torch_j_random_memory_tensor), dim=0)
+
+            # save data in PT file for training
+            torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
+            torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
+            torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
 
 
             ###################### Plot results ######################
