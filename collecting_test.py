@@ -361,7 +361,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             ax.set_zlim([-1.5, 1.5])   # z-axis range
             ax.legend()
 
-            figure_name = str(initial_guess) + '_' + str(initial_state) + '_3d' + '.png'
+            figure_name = 'idx-' + str(initial_idx.item()) + str(initial_guess) + '_' + str(initial_state) + '_3d' + '.png'
             figure_path = os.path.join(FOLDER_PATH, figure_name)
             plt.savefig(figure_path)
 
@@ -379,7 +379,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             plt.ylabel("Joint position [rad]")
             plt.legend()
 
-            figure_name = str(initial_guess)  + '_' + str(initial_state) + '_joints' + '.png'
+            figure_name = 'idx-' + str(initial_idx.item()) + str(initial_guess)  + '_' + str(initial_state) + '_joints' + '.png'
             figure_path = os.path.join(FOLDER_PATH, figure_name)
             plt.savefig(figure_path)
 
@@ -393,7 +393,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             plt.xlabel("Time [s]")
             plt.ylabel("mpc cost")
 
-            figure_name = str(initial_guess)  + '_' + str(initial_state) + '_cost' + '.png'
+            figure_name = 'idx-' + str(initial_idx.item()) + str(initial_guess)  + '_' + str(initial_state) + '_cost' + '.png'
             figure_path = os.path.join(FOLDER_PATH, figure_name)
             plt.savefig(figure_path)
 
@@ -414,7 +414,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             plt.ylabel("Joint Control Inputs")
             plt.legend()
 
-            figure_name = str(initial_guess) + '_' + str(initial_state) + '_u' + '.png'
+            figure_name = 'idx-' + str(initial_idx.item()) + str(initial_guess) + '_' + str(initial_state) + '_u' + '.png'
             figure_path = os.path.join(FOLDER_PATH, figure_name)
             plt.savefig(figure_path)
 
@@ -428,7 +428,7 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             plt.xlabel("Time [s]")
             plt.ylabel("absolute distance [m]")
 
-            figure_name = str(initial_guess)  + '_' + str(initial_state) + '_dis' + '.png'
+            figure_name = 'idx-' + str(initial_idx.item()) + str(initial_guess)  + '_' + str(initial_state) + '_dis' + '.png'
             figure_path = os.path.join(FOLDER_PATH, figure_name)
             plt.savefig(figure_path)
       except Exception as e:

@@ -15,19 +15,19 @@ import matplotlib.pyplot as plt
 # Setting
 CONTROL_STEPS = 200 # 200
 HOR = 128
-NUM_SEED = 42
-MAX_CORE_CPU = 28 # 20
+NUM_SEED = 42 # 42
+MAX_CORE_CPU = 1 # 28
 SAMPLING_TIME = 0.001
 TARGET_POS = np.array([0.3, 0.3, 0.5])
 
-DIFF_INI_STATES = 10 
-NUM_INI_STATES = 20
+DIFF_INI_STATES = 1 
+NUM_INI_STATES = 2*DIFF_INI_STATES
 # SG_INI_STATES = 10
 # MG_INI_STATES = 10
-MG_U_GUESS_NUMBER = 5
+MG_U_GUESS_NUMBER = 10
 
 # data saving
-RESULT_SAVED_PATH = '/root/diffusion_mujoco_panda/inference_SG_MG'
+RESULT_SAVED_PATH = '/root/diffusion_mujoco_panda/inference_SG_MG/test'
 # COST_SG_FILENAME_SAVE = 'COST_SG.npy'
 # TIME_SG_FILENAME_SAVE = 'TIME_SG.npy'
 # COST_MG_FILENAME_SAVE = 'COST_MG.npy'

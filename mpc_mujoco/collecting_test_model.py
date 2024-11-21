@@ -7,7 +7,7 @@ import mujoco.viewer
 import time
 NOISE_DATA_PER_STATE = 20 # 20
 HORIZON = 128
-SUM_CTL_STEPS = 200 #200
+SUM_CTL_STEPS = 200 #200 ############
 SAMPLING_TIME = 0.001
 CONTROL_RATE = 10
 NUM_SEED = 42
@@ -820,3 +820,164 @@ class Cartesian_Collecting_MPC:
         next_u_MG_guess = np.array(next_u_MG_guess)
         
         return next_u_MG_guess
+    
+
+    # selected data 1 step simulation 
+    def _simulate_noise_data_single_step(self, mpc, panda, data, u_guesses, initial_idx, ctl_step, n):
+        control_steps = 1
+        horizon = HORIZON
+
+        # data collecting for 1 setting
+        u_collecting_1_setting = np.zeros([control_steps,horizon,7])
+        x0_collecting_1_setting = np.zeros([control_steps,20])
+
+        x0 = np.zeros((20, 1))
+        mpc.x0 = x0
+        # mpc.u0 = ca.DM(SG_u_guess)
+        # mpc.set_initial_guess()
+
+        joint_states = np.zeros([1,7])
+        joint_inputs = np.zeros([1,7])
+        x_states = {1: [], 2: [], 3: []}
+        mpc_cost = []
+        abs_distance = []
+        delta_t_list = []
+        current_step = 0
+
+        # control update step
+        # mujoco_time_step = SAMPLING_TIME      # MuJoCo timestep
+        # controller_sample_time = CONTROLLER_SAMPLE_TIME  # Controller sampling time
+        max_steps = SUM_CTL_STEPS*CONTROL_RATE
+        control_step = 0
+
+        # while current_step < max_steps: # viewer.is_running():
+
+            # if current_step % CONTROL_RATE == 0:
+
+        # tempory memories
+        temp_joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        temp_joint_inputs = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+        temp_x_states = {1: [], 2: [], 3: []}
+        temp_mpc_cost = []
+        temp_abs_distance = []
+        temp_delta_t_list = []
+
+        temp_u_collecting_1_setting = np.zeros([MG_U_GUESS_NUMBER,horizon,7])
+        temp_x0_collecting_1_setting = np.zeros([MG_U_GUESS_NUMBER,20])
+
+        for num_u in range(MG_U_GUESS_NUMBER):
+
+
+            end_position = self.data.body("hand").xpos.copy()
+            print(f'-------------------------------------------------------------------------')
+            print(f'initial_idx, ctl_step, n, current_step, end_position, num_u -- {initial_idx, ctl_step, n, current_step, end_position, num_u}')
+            print(f'-------------------------------------------------------------------------')
+            distance = np.linalg.norm(end_position.reshape(3, 1) - TARGET_POS)
+            print(f'distance -- {distance}')
+            temp_abs_distance.append(distance)
+
+            mpc.u0 = ca.DM(u_guesses[num_u,:].reshape(7,1))
+            mpc.set_initial_guess()
+        
+            # if current_step > 0:
+            #     mpc.u0 = ca.DM(next_u_MG_guesses[num_u,:].reshape(7,1))
+            #     mpc.set_initial_guess()
+            # else:
+            #     mpc.u0 = ca.DM(MG_u_guess[num_u,:])
+            #     mpc.set_initial_guess()
+
+            for i in range(3):
+                temp_x_states[i + 1].append(end_position[i])
+
+            # Position Jacobian
+            jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
+            jacp = jacp[:, :7] # 3*7
+
+            q_current = np.array(data.qpos).reshape(-1, 1)
+            q_dot_current = np.array(data.qvel).reshape(-1, 1)
+            x_current = np.array(data.xpos[9,:]).reshape(-1, 1)
+            x0[:7] = q_current[:7]
+            x0[7:14] = q_dot_current[:7]
+            x0[14:17] = x_current
+            x0[17:20] = ca.mtimes(jacp, q_dot_current[:7])
+
+            # x0 data collecting
+            temp_x0_collecting_1_setting[num_u,:] = x0.reshape(1,20)
+
+            for i in range(7):
+                temp_joint_states[i + 1].append(q_current[i])
+
+            # compute u
+            start_time = time.time()
+            u0 = mpc.make_step(x0)
+            end_time = time.time()
+            delta_t = end_time - start_time
+            temp_delta_t_list.append(delta_t)
+            
+            data.ctrl[:7] = u0.flatten()
+
+            predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
+            predicted_controls = mpc.data.prediction(('_u', 'tau'))  # Predicted controls for the horizon
+            # control_along_horizon = predicted_controls[:,0:10,:]
+
+            applied_inputs = predicted_controls[:,0,0].reshape(-1, 1)
+            for i in range(7):
+                temp_joint_inputs[i + 1].append(applied_inputs[i])
+
+            # u data collecting
+            u_collecting_array = predicted_controls.transpose(2,1,0) # 7*128*1 --> 1*128*7
+            temp_u_collecting_1_setting[num_u,:,:] = u_collecting_array
+
+            # calculate mpc cost
+            cost = self.mpc_cost(predicted_states, predicted_controls, Q, R, P)
+            print(f'cost -- {cost}')
+            cost = cost.toarray().reshape(-1)
+            temp_mpc_cost.append(cost)
+
+        # find the min cost 
+        min_value = min(temp_mpc_cost)
+        min_index = temp_mpc_cost.index(min_value)
+        
+        for i in range(7):
+            joint_states[0,i] = temp_joint_states[i+1][min_index]
+        for i in range(7):
+            joint_inputs[0,i] = temp_joint_inputs[i+1][min_index]
+        for i in range(3):
+            x_states[i + 1].append(temp_x_states[i+1][min_index])
+        mpc_cost.append(temp_mpc_cost[min_index])
+        abs_distance.append(temp_abs_distance[min_index])
+        delta_t_list.append(temp_delta_t_list[min_index])
+
+        u_collecting_1_setting[control_step,:,:] = temp_u_collecting_1_setting[min_index,:,:]
+        x0_collecting_1_setting[control_step,:] = temp_x0_collecting_1_setting[min_index,:]
+
+        # control step update
+        control_step = control_step + 1
+
+        # next MG guess
+        MG_current_inputs = np.zeros(7)
+        for i in range(7):
+            MG_current_inputs[i] = temp_joint_inputs[i+1][min_index]
+        next_u_MG_guesses = self.next_MG_guesses_generating(MG_current_inputs)  
+
+        u_min = np.zeros(7)
+  
+        u_min = joint_inputs[-1,:].reshape(7)
+        data.ctrl[:7] = u_min
+
+        # current_step += 1
+        # print(f'current_step -- {current_step}')
+        
+        # mujoco.mj_step(panda, data)
+        x_states = np.array(x_states)
+        mpc_cost = np.array(mpc_cost )
+        abs_distance = np.array(abs_distance)
+        delta_t_list = np.array(delta_t_list)
+            
+        return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting, delta_t_list
+    
+
+    def selelcted_noise_data_simulate(self, u_guesses, state, initial_idx, ctl_step, n):
+        self.data.qpos[:7] = state
+        mujoco.mj_step(self.panda, self.data)
+        return self._simulate_noise_data_single_step(self.mpc, self.data.model, self.data, u_guesses, initial_idx, ctl_step, n)
