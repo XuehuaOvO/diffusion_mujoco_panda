@@ -231,7 +231,7 @@ class Cartesian_Collecting_MPC:
 
         joint_states = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
         joint_inputs = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
-        x_states = {1: [], 2: [], 3: []}
+        x_states = np.zeros([control_steps,3]) # {1: [], 2: [], 3: []}
         mpc_cost = []
         abs_distance = []
 
@@ -257,7 +257,7 @@ class Cartesian_Collecting_MPC:
 
 
                 for i in range(3):
-                    x_states[i + 1].append(end_position[i])
+                    x_states[control_step,i] = end_position[i]
 
                 # Position Jacobian
                 jacp, _ = self.compute_jacobian(self.panda, self.data, TARGET_POS) # 3*9
