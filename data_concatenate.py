@@ -9,8 +9,12 @@ npy_path = '/root/diffusion_mujoco_panda/inference_SG_MG/j_SG_idx-6_test.npy'
 npy_data = np.load(npy_path)
 
 # tensor load
-file_path = "/root/diffusion_mujoco_panda/collecting_test/collecting_4/j_data_idx-4_test4.pt"
+file_path = "/root/diffusion_mujoco_panda/collecting_test/collecting_4/x_data_cat_test4.pt"
 data = torch.load(file_path)
+
+# tensor size
+print(f'data_size -- {data.size()}')
+print(data[4200,:])
 
 
 tensor_u_list = []
