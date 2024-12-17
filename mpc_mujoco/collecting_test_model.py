@@ -238,6 +238,7 @@ class Cartesian_Collecting_MPC:
         x_states = {1: [], 2: [], 3: []}
         mpc_cost = []
         abs_distance = []
+        delta_t_list = []
 
         current_step = 0
 
@@ -281,8 +282,13 @@ class Cartesian_Collecting_MPC:
                 for i in range(7):
                     joint_states[i + 1].append(q_current[i])
 
-            
+                start_time = time.time()
                 u0 = mpc.make_step(x0)
+                end_time = time.time()
+                delta_t = end_time - start_time
+                print(f'mpc_solving time -- {delta_t}')
+                delta_t_list.append(delta_t)
+
                 data.ctrl[:7] = u0.flatten()
 
                 predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon
@@ -311,7 +317,7 @@ class Cartesian_Collecting_MPC:
             
 
 
-        return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting
+        return joint_states, x_states, mpc_cost, joint_inputs, abs_distance, x0_collecting_1_setting, u_collecting_1_setting, delta_t_list
 
     def _simulate_noise_data(self, mpc, panda, data, u_initial_guess):
         control_steps = 1
@@ -472,8 +478,12 @@ class Cartesian_Collecting_MPC:
         # for i in range(7):
         #     joint_states[i + 1].append(q_current[i])
 
-    
+        start_time = time.time()
         u0 = mpc.make_step(x0)
+        end_time = time.time()
+        delta_t = end_time - start_time
+        print(f'mpc_solving time -- {delta_t}')
+
         data.ctrl[:7] = u0.flatten()
 
         predicted_states = mpc.data.prediction(('_x', 'x'))  # Predicted states for the horizon

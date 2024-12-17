@@ -11,15 +11,15 @@ from mpc_mujoco.joint_model import Joint_MPC
 
 import matplotlib.pyplot as plt
 # Setting
-NUM_INI_STATES = 28 # 25
+NUM_INI_STATES = 56 # 25
 NOISE_DATA_PER_STATE = 20 # 20
 CONTROL_STEPS = 200 #200
-NUM_SEED = 42
+NUM_SEED = 14
 MAX_CORE_CPU = 28
 
 SAMPLING_TIME = 0.001
 TARGET_POS = np.array([0.3, 0.3, 0.5])
-FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_4' 
+FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_6' 
 
 def main():
     num_seed = NUM_SEED
@@ -168,7 +168,7 @@ def ini_0_data_generating():
     return ini_0_states, random_ini_u_guess, data_idx
 
 
-def states_noise_generating(current_states,current_inputs):
+def ini_states_noise_generating(current_states,current_inputs):
     np.random.seed(NUM_SEED)
 
     # add Gaussian noise to the random initial states
@@ -195,6 +195,32 @@ def states_noise_generating(current_states,current_inputs):
     return states_noise_array, noisy_data, noisy_data_u_guess
 
 
+def states_noise_generating(current_states,current_inputs):
+    np.random.seed(NUM_SEED)
+
+    # add Gaussian noise to the random initial states
+    mean_noise = 0
+    std_dev_noise = 0.05
+
+    states_noise_array = np.zeros((NOISE_DATA_PER_STATE, 7))
+    for i in range(NOISE_DATA_PER_STATE):
+          noise_to_ini_states =  np.round(np.random.normal(mean_noise, std_dev_noise, 7),4)
+          states_noise_array[i,:] = noise_to_ini_states
+    
+    noisy_data = np.zeros((NOISE_DATA_PER_STATE, 7)) # 20*7
+    for k in range(NOISE_DATA_PER_STATE):
+          noisy_data[k,:] = current_states + states_noise_array[k,:]
+
+    noisy_data_u_guess_list = []
+    for i in range(NOISE_DATA_PER_STATE):
+          # u_noisy_guess_4 = np.round(random.uniform(current_inputs[3]-2, current_inputs[3]+2),2)
+          # u_noisy_guess_5 = np.round(random.uniform(current_inputs[4]-2, current_inputs[4]+2),2)
+          # u_noisy_guess_7 = np.round(random.uniform(current_inputs[6]-2, current_inputs[6]+2),2)
+          noisy_data_u_guess_list.append([current_inputs[0],current_inputs[1],current_inputs[2],current_inputs[3],current_inputs[4],current_inputs[5],current_inputs[6]])
+    noisy_data_u_guess =  np.array(noisy_data_u_guess_list) # 20*7
+          
+    return states_noise_array, noisy_data, noisy_data_u_guess
+
 
 def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_random_memory, x_ini_memory, x_random_memory, j_ini_memory, j_random_memory):
       try:
@@ -204,12 +230,22 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             mpc = Cartesian_Collecting_MPC(panda = panda, data=data)
 
             # normal simulation
-            ini_joint_states, ini_x_states, ini_mpc_cost, ini_joint_inputs, ini_abs_distance, x_collecting_ini, u_collecting_ini = mpc.simulate(initial_guess,initial_state,initial_idx)
+            ini_joint_states, ini_x_states, ini_mpc_cost, ini_joint_inputs, ini_abs_distance, x_collecting_ini, u_collecting_ini, delta_t = mpc.simulate(initial_guess,initial_state,initial_idx)
             #new_joint_states = np.array(new_joint_states)
             print(f'index {initial_idx.item()} initial data control loop finished!!!!!!')
             print(f'x_data size -- {x_collecting_ini.shape}')
             print(f'u_data size -- {u_collecting_ini.shape}')
             print(f'----------------------------------------------------')
+
+            print(f'----------------------------------------------------')
+            ini_mpc_t_memory = np.array(delta_t).reshape(CONTROL_STEPS, 1)
+            ini_mpc_distance_memory = np.array(ini_abs_distance).reshape(CONTROL_STEPS, 1)
+
+            time_mpc_path = os.path.join(FOLDER_PATH, f'time_mpc_' + 'idx-' + str(initial_idx.item()) + '.npy')
+            np.save(time_mpc_path, ini_mpc_t_memory)
+            distance_mpc_path = os.path.join(FOLDER_PATH, f'distance_mpc_' + 'idx-' + str(initial_idx.item()) + '.npy')
+            np.save(distance_mpc_path, ini_mpc_distance_memory)
+            print(f'------ solving time & distance trajectory saving finished! ------')
 
             u_ini_memory = u_collecting_ini
             x_ini_memory = x_collecting_ini.reshape(CONTROL_STEPS,20)
@@ -243,14 +279,16 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
 
                   if ctl_step == 0:
                         current_inputs = initial_guess.copy()
+                        noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states,current_inputs)
                   else:
                         for i in range(7):
                               current_inputs[i] = ini_joint_inputs[i+1][ctl_step-1]
+                        noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states,current_inputs)
                   # data.qpos[:7] = current_states
                   # mpc = Cartesian_Collecting_MPC(panda = panda, data=data)
 
                   # noisy data generating
-                  noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states,current_inputs) # 20*7
+                  # noise_array, noisy_states, noisy_data_u_guess = states_noise_generating(current_states,current_inputs) # 20*7
 
                   # print(f'current_states -- {current_states}')
 
@@ -325,9 +363,9 @@ def single_ini_process(initial_guess,initial_state,initial_idx, u_ini_memory, u_
             j_data = torch.cat((torch_j_ini_memory_tensor, torch_j_random_memory_tensor), dim=0)
 
             # save data in PT file for training
-            torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
-            torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
-            torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_' + 'idx-' + str(initial_idx.item()) + '_test4.pt'))
+            torch.save(u_data, os.path.join(FOLDER_PATH , f'u_data_' + 'idx-' + str(initial_idx.item()) + '_test6.pt'))
+            torch.save(x_data, os.path.join(FOLDER_PATH , f'x_data_' + 'idx-' + str(initial_idx.item()) + '_test6.pt'))
+            torch.save(j_data, os.path.join(FOLDER_PATH , f'j_data_' + 'idx-' + str(initial_idx.item()) + '_test6.pt'))
 
 
             ###################### Plot results ######################
