@@ -1,0 +1,132 @@
+[33mcommit 9927766058566c2cd6b97e90837e29715ba51afb[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 15:56:12 2024 +0100
+
+    gitignore update
+
+[33mcommit e307c6fa5cda23aae5df6000dd3f68fea52d3c53[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 11:07:30 2024 +0100
+
+    Add j test1 file
+
+[33mcommit 8cd0ee32506de52d053a337b7104ca38bd153c8d[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 11:06:56 2024 +0100
+
+    Add x test1 file
+
+[33mcommit db10a39597eded7b8cb1306a2d26a170da3e99a1[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 11:05:26 2024 +0100
+
+    Add u test1 file
+
+[33mcommit a462d3dbaa4bb923cdd0a74c1bd7eb0f0b85ee8d[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 11:03:00 2024 +0100
+
+    Track .pt files with Git LFS
+
+[33mcommit 5cfda2230dcdb1d1088cd8102fe6a446949ab952[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 10:53:01 2024 +0100
+
+    test 1
+
+[33mcommit 2b10765ffcfa07bb8a44c7c8f906f7a1e269bd23[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 18 10:50:59 2024 +0100
+
+    collecting test update
+
+[33mcommit caa838ed55f2f629f7e638b698c3851cf6aee95d[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Thu Nov 14 17:58:21 2024 +0100
+
+    updating
+
+[33mcommit 336aff1f47ae306780df75c521817226a62a5ff7[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Wed Nov 13 16:40:51 2024 +0100
+
+    data collecting test
+
+[33mcommit 1add22dd80bfef638f4fdc58374dd5a876102343[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Wed Nov 13 15:35:53 2024 +0100
+
+    test model for single initial state
+
+[33mcommit 6d10a0a4352ae6af783569afddb4f1a95eaf604a[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Tue Nov 12 17:25:19 2024 +0100
+
+    updating
+
+[33mcommit 5b6816e9ef53872069e1cfc1906d215b34f05ff1[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Tue Nov 12 17:04:05 2024 +0100
+
+    updating
+
+[33mcommit 4a8a31ed07d6b0361ef61a1e9114c762acfea68d[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 11 17:25:14 2024 +0100
+
+    good results setting
+
+[33mcommit c48aadf543257da94108aad12072b2339fc7857a[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 11 01:02:58 2024 +0100
+
+    update
+
+[33mcommit a650c7c1f42a81f6b1f8040f233cc08773cce218[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 11 01:02:43 2024 +0100
+
+    panda ts 0.001
+
+[33mcommit e8149d42d8579e61c451afc6ef3c410cd5b25146[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Nov 11 01:01:38 2024 +0100
+
+    data collecting
+
+[33mcommit b9baca70657e56234db8e81fe8e08e5ca013ab7f[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Fri Nov 8 16:35:38 2024 +0100
+
+    mujoco simulation update
+
+[33mcommit 4c8db2543185bea3f843d4275dc22c0a2a02d62b[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Fri Nov 1 15:48:10 2024 +0100
+
+    control update
+
+[33mcommit abe01f818bf4079ede36e78f4cead0a35281dc3b[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Mon Oct 28 14:40:09 2024 +0100
+
+    mujoco without rendering
+
+[33mcommit 1b30ee1a71f4a486d85343ba4b449d91aeb22443[m
+Merge: ab39b4b bfe0fca
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Sun Oct 27 11:37:55 2024 +0100
+
+    Merge branch 'main' of https://github.com/XuehuaOvO/diffusion_mujoco_panda into main
+
+[33mcommit bfe0fca3322ec208ae579e19430ccac95e5de8a9[m
+Author: XuehuaOvO <137723947+XuehuaOvO@users.noreply.github.com>
+Date:   Sun Oct 27 11:30:56 2024 +0100
+
+    Initial commit
+
+[33mcommit ab39b4bed503153b4a9d2ffbedd50aa8ef8bdfa9[m
+Author: XuehuaOvO <xiaoxuehua.xh@gmail.com>
+Date:   Sun Oct 27 11:28:47 2024 +0100
+
+    Initial commit in new Git repository
