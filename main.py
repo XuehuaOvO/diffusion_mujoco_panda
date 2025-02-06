@@ -32,13 +32,14 @@ if __name__ == "__main__":
     gaussian_noise_6 = np.round(np.random.normal(mean, std_dev),2)
 
     # initial_state = [gaussian_noise_1, gaussian_noise_2, gaussian_noise_3, gaussian_noise_4, gaussian_noise_5, gaussian_noise_6]
-    # initial_state = [ 0.05, -0.01,  0.06,  0.15, -0.02, -0.02]
-    initial_state = [ 0, 0, 0, 0, 0, 0]
-    data.qpos[:6] = initial_state # different joints initial states
+    initial_state = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+    # initial_state = [ 0, 0, 0, 0, 0, 0]
+    data.qpos[:7] = initial_state # different joints initial states
+    # mujoco.mj_step(panda, data)
 
     print(f'initial q_pos -- {np.array(data.qpos).reshape(-1, 1)}')
     print(f'initial x_pos -- {np.array(data.xpos)}')
-    # viewer = mujoco.viewer.launch(panda, data)
+    viewer = mujoco.viewer.launch(panda, data)
     
     # mpc = MPC(data=data, trajectory_id=0)
     mpc = Cartesian_MPC(panda = panda, data=data)

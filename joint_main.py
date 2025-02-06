@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     # derive the target position
-    panda_target = mujoco.MjModel.from_xml_path('/home/xiao/diffusion_mujoco/mjx_scene.xml')
+    panda_target = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
     data_target = mujoco.MjData(panda_target)
     data_target.qpos[:7] = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
     mujoco.mj_fwdPosition(panda_target, data_target)
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
 
     # panda = load_robot_description("panda_mj_description")
-    panda = mujoco.MjModel.from_xml_path('/home/xiao/diffusion_mujoco/mjx_scene.xml')
+    panda = mujoco.MjModel.from_xml_path('/root/diffusion_mujoco_panda/xml/mjx_scene.xml')
     data = mujoco.MjData(panda)
     for body_id in range(panda.nbody):  # nbody is the total number of bodies
         body_name = mujoco.mj_id2name(panda, mujoco.mjtObj.mjOBJ_BODY, body_id)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # mujoco.mj_fwdPosition(panda, data) # also mujoco.mj_invPosition!!!!!!!
     print(f'initial q_pos -- {np.array(data.qpos).reshape(-1, 1)}')
     print(f'initial x_pos -- {np.array(data.xpos)}')
-    # viewer = mujoco.viewer.launch(panda, data)
+    viewer = mujoco.viewer.launch(panda, data)
     
     # mpc = MPC(data=data, trajectory_id=0)
     # mpc = Cartesian_MPC(panda = panda, data=data)
