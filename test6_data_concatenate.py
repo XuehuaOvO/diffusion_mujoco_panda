@@ -5,12 +5,18 @@ import os
 FOLDER_PATH = '/root/diffusion_mujoco_panda/collecting_test/collecting_6' 
 
 # npy load
-# npy_path = '/root/diffusion_mujoco_panda/inference_SG_MG/j_SG_idx-6_test.npy'
-# npy_data = np.load(npy_path)
+npy_path = '/root/diffusion_mujoco_panda/collecting_test/collecting_6/new_cost_idx-103.npy'
+npy_data = np.load(npy_path)
+print(f'cost -- {npy_data}')
+
+npy_path = '/root/diffusion_mujoco_panda/collecting_test/collecting_6/time_mpc_idx-102.npy'
+data = np.load(npy_path)
+print(f'delta time -- {data}')
 
 # tensor load
-# file_path = "/root/diffusion_mujoco_panda/collecting_test/collecting_5/x_data_cat_test5.pt"
+# file_path = "/root/diffusion_mujoco_panda/collecting_test/collecting_6/j_data_idx-101_test6.pt"
 # data = torch.load(file_path)
+# print(f'delta time -- {data}')
 
 # # tensor size
 # print(f'data_size -- {data.size()}')
